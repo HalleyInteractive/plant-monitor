@@ -14,20 +14,20 @@
  * limitations under the License.
  */
  
-/*
-  Google Plant
-
-  A small device you can plug in the soil of your plant, it will
-  record signals such as the amount of sunlight and water.
-
-  The circuit:
-  * ESP8266
-  * LRD
-  * LED
-  * Capacitive Soil Sensor
-
-  https://github.com/HalleyInteractive/google-plant
-*/
+/**
+ * Google Plant
+ * 
+ * A small device you can plug in the soil of your plant, it will
+ * record signals such as the amount of sunlight and water.
+ * 
+ * The circuit:
+ * - ESP8266
+ * - LRD
+ * - LED
+ * - Capacitive Soil Sensor
+ * 
+ * https://github.com/HalleyInteractive/google-plant
+ */
 
 #include <EEPROM.h>
 #include <ESP8266WiFi.h>
@@ -47,7 +47,7 @@ void setup() {
 
   WiFiManager wifiManager;
   
-//  wifiManager.resetSettings(); // Reset WiFi settings for debugging.
+  //wifiManager.resetSettings(); // Reset WiFi settings for debugging.
   WiFiManagerParameter googleSheetIdParam("gsid", "Google Sheet ID", googleSheetId, 40);
   wifiManager.addParameter(&googleSheetIdParam);
   wifiManager.setSaveConfigCallback(saveConfigCallback);
@@ -66,12 +66,12 @@ void setup() {
 }
 
 /**
-    Reads a char array from EEPROM.
-    @param param The parameter to write EEPROM data to.
-    @param start EEPROM memory location to start read from.
-    @param size Length of the parameter.
-    @return EEPROM pointer, start + size.
-*/
+ * Reads a char array from EEPROM.
+ * @param param The parameter to write EEPROM data to.
+ * @param start EEPROM memory location to start read from.
+ * @param size Length of the parameter.
+ * @return EEPROM pointer, start + size.
+ */
 int readFromEEPROM(char *param, int start, int size) {
   Serial.print("Reading from EEPROM: ");
   for(int i = 0; i < size; i++) {
@@ -84,12 +84,12 @@ int readFromEEPROM(char *param, int start, int size) {
 }
 
 /**
-    Writes a char array to EEPROM.
-    @param param The parameter to to store.
-    @param start EEPROM memory location to start writing at.
-    @param size Length of the parameter.
-    @return EEPROM pointer, start + size.
-*/
+ * Writes a char array to EEPROM.
+ * @param param The parameter to to store.
+ * @param start EEPROM memory location to start writing at.
+ * @param size Length of the parameter.
+ * @return EEPROM pointer, start + size.
+ */
 int writeToEEPROM(char *param, int start, int size) {
   Serial.print("Writing '");
   for(int i = 0; i < size; i++) {
@@ -109,7 +109,9 @@ void saveConfigCallback () {
   shouldSaveConfig = true;
 }
 
-
+/**
+ * Arduino main event loop.
+ */
 void loop() {
   
 }
