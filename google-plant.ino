@@ -44,6 +44,8 @@ FirebaseData firebaseData;
 #define LED_RED 0
 #define LED_GREEN 4
 #define LED_BLUE 5
+#define LDR A0
+#define CSMS A1
 
 /**
  * Setup WifiManager and components.
@@ -52,12 +54,15 @@ void setup() {
   Serial.begin(9600);
   EEPROM.begin(512);
 
+  pinMode(LDR, INPUT);
+
   pinMode(LED_RED, OUTPUT);
   pinMode(LED_GREEN, OUTPUT);
   pinMode(LED_BLUE, OUTPUT);
   digitalWrite(LED_RED, LOW);
   digitalWrite(LED_GREEN, LOW);
   digitalWrite(LED_BLUE, HIGH);
+
   WiFiManager wifiManager;
   
 //  wifiManager.resetSettings(); // Reset WiFi settings for debugging.
@@ -168,4 +173,15 @@ void loop() {
   sensorReading.set("water", 50);
   Firebase.set(firebaseData, "plant/" + String(currentTimestamp), sensorReading);
   delay(10000);
+  int lightReading = analogRead(LDR);
+  int lightPercentage = map(lightReading, 0, 1024, 0, 100);
+
+  int moistReading = analogRead(CSMS);
+  moistReading = max(300, moistReading);
+  moistReading = min(moistReading, 650);
+  int moistPercentage(moistReading, 300, 600, 100, 0);
+  
+  Serial.print(lightPercentage);
+  Serial.print("  ");
+  Serial.println(moistPercentage);
 }
