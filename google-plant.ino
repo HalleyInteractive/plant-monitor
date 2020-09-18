@@ -34,9 +34,18 @@
 #include <DNSServer.h>
 #include <ESP8266WebServer.h>
 #include <WiFiManager.h>
+#include "FirebaseESP8266.h"
 
-char googleSheetId[40] = "Google Sheet ID";
+char firebaseProject[64] = "Firebase Project ID";
+char firebaseSecret[64] = "Firebase Secret";
 bool shouldSaveConfig = false;
+FirebaseData firebaseData;
+
+#define LED_RED 0
+#define LED_GREEN 4
+#define LED_BLUE 5
+#define LDR A0
+#define CSMS A1
 
 /**
  * Setup WifiManager and components.
@@ -45,24 +54,69 @@ void setup() {
   Serial.begin(9600);
   EEPROM.begin(512);
 
+  pinMode(LDR, INPUT);
+
+  pinMode(LED_RED, OUTPUT);
+  pinMode(LED_GREEN, OUTPUT);
+  pinMode(LED_BLUE, OUTPUT);
+  digitalWrite(LED_RED, LOW);
+  digitalWrite(LED_GREEN, LOW);
+  digitalWrite(LED_BLUE, HIGH);
+
   WiFiManager wifiManager;
   
-  //wifiManager.resetSettings(); // Reset WiFi settings for debugging.
-  WiFiManagerParameter googleSheetIdParam("gsid", "Google Sheet ID", googleSheetId, 40);
-  wifiManager.addParameter(&googleSheetIdParam);
+//  wifiManager.resetSettings(); // Reset WiFi settings for debugging.
+  WiFiManagerParameter firebaseProjectParam("fbp", "Firebase Project", firebaseProject, 64);
+  wifiManager.addParameter(&firebaseProjectParam);
+
+  WiFiManagerParameter firebaseSecretParam("fbs", "Firebase Secret", firebaseSecret, 64);
+  wifiManager.addParameter(&firebaseSecretParam);
+  
   wifiManager.setSaveConfigCallback(saveConfigCallback);
   wifiManager.autoConnect("Plant", "googlePlant");
   
   int pointer = 0x0F;
   if(shouldSaveConfig) {
-    strcpy(googleSheetId, googleSheetIdParam.getValue());
-    pointer = writeToEEPROM(googleSheetId, pointer, 40);
+    strcpy(firebaseProject, firebaseProjectParam.getValue());
+    pointer = writeToEEPROM(firebaseProject, pointer, 64);
+    strcpy(firebaseSecret, firebaseSecretParam.getValue());
+    pointer = writeToEEPROM(firebaseSecret, pointer, 64);
   } else {
-    pointer = readFromEEPROM(googleSheetId, pointer, 40);
+    pointer = readFromEEPROM(firebaseProject, pointer, 64);
+    pointer = readFromEEPROM(firebaseSecret, pointer, 64);
   }
 
-  Serial.print("Google Sheet ID: ");
-  Serial.println(googleSheetId);
+  Serial.print("Firebase Project: ");
+  Serial.println(firebaseProject);
+
+  Serial.print("Firebase Secret: ");
+  Serial.println(firebaseSecret);
+
+  Firebase.begin(firebaseProject, firebaseSecret);
+  Firebase.reconnectWiFi(true);
+  Firebase.setMaxRetry(firebaseData, 3);
+  Firebase.setMaxErrorQueue(firebaseData, 30);
+  Firebase.enableClassicRequest(firebaseData, true);
+  
+  firebaseData.setBSSLBufferSize(1024, 1024);
+  firebaseData.setResponseSize(1024);
+  
+  digitalWrite(LED_GREEN, HIGH);
+  digitalWrite(LED_BLUE, LOW);
+
+}
+
+/**
+ * Sets current timestamp in Firebase, reads it and 
+ * returns value.
+ * @return Current timestamp in seconds.
+ */
+int getTimestamp() {
+  Firebase.setTimestamp(firebaseData,  "/current/timestamp");
+  int currentTimestamp = firebaseData.intData();
+  Serial.print("TIMESTAMP (Seconds): ");
+  Serial.println(currentTimestamp);
+  return currentTimestamp;
 }
 
 /**
@@ -113,5 +167,21 @@ void saveConfigCallback () {
  * Arduino main event loop.
  */
 void loop() {
+  int currentTimestamp = getTimestamp();
+  FirebaseJson sensorReading;
+  sensorReading.set("light", 84);
+  sensorReading.set("water", 50);
+  Firebase.set(firebaseData, "plant/" + String(currentTimestamp), sensorReading);
+  delay(10000);
+  int lightReading = analogRead(LDR);
+  int lightPercentage = map(lightReading, 0, 1024, 0, 100);
+
+  int moistReading = analogRead(CSMS);
+  moistReading = max(300, moistReading);
+  moistReading = min(moistReading, 650);
+  int moistPercentage(moistReading, 300, 600, 100, 0);
   
+  Serial.print(lightPercentage);
+  Serial.print("  ");
+  Serial.println(moistPercentage);
 }
