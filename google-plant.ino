@@ -41,6 +41,10 @@ char firebaseSecret[64] = "Firebase Secret";
 bool shouldSaveConfig = false;
 FirebaseData firebaseData;
 
+#define LED_RED 0
+#define LED_GREEN 4
+#define LED_BLUE 5
+
 /**
  * Setup WifiManager and components.
  */
@@ -48,6 +52,12 @@ void setup() {
   Serial.begin(9600);
   EEPROM.begin(512);
 
+  pinMode(LED_RED, OUTPUT);
+  pinMode(LED_GREEN, OUTPUT);
+  pinMode(LED_BLUE, OUTPUT);
+  digitalWrite(LED_RED, LOW);
+  digitalWrite(LED_GREEN, LOW);
+  digitalWrite(LED_BLUE, HIGH);
   WiFiManager wifiManager;
   
 //  wifiManager.resetSettings(); // Reset WiFi settings for debugging.
@@ -85,6 +95,10 @@ void setup() {
   
   firebaseData.setBSSLBufferSize(1024, 1024);
   firebaseData.setResponseSize(1024);
+  
+  digitalWrite(LED_GREEN, HIGH);
+  digitalWrite(LED_BLUE, LOW);
+
 }
 
 /**
