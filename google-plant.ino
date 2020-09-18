@@ -30,22 +30,27 @@
  */
 
 #include <EEPROM.h>
-#include <ESP8266WiFi.h>
+#include <WiFi.h>
 #include <DNSServer.h>
-#include <ESP8266WebServer.h>
+#include <WebServer.h>
 #include <WiFiManager.h>
-#include "FirebaseESP8266.h"
+#include <FirebaseESP32.h>
 
 char firebaseProject[64] = "Firebase Project ID";
 char firebaseSecret[64] = "Firebase Secret";
 bool shouldSaveConfig = false;
+bool shouldStartPortal = false;
+long lastSensorReadMillis = 0;
+int sensorReadDelay = 5000;
+
 FirebaseData firebaseData;
 
-#define LED_RED 0
-#define LED_GREEN 4
-#define LED_BLUE 5
-#define LDR A0
-#define CSMS A1
+#define LED_RED 12
+#define LED_GREEN 14
+#define LED_BLUE 27
+#define LDR 36
+#define CSMS 39
+#define PORTAL_TRIGGER 26
 
 /**
  * Setup WifiManager and components.
@@ -55,10 +60,12 @@ void setup() {
   EEPROM.begin(512);
 
   pinMode(LDR, INPUT);
+  pinMode(CSMS, INPUT);
 
   pinMode(LED_RED, OUTPUT);
   pinMode(LED_GREEN, OUTPUT);
   pinMode(LED_BLUE, OUTPUT);
+  
   digitalWrite(LED_RED, LOW);
   digitalWrite(LED_GREEN, LOW);
   digitalWrite(LED_BLUE, HIGH);
@@ -98,12 +105,16 @@ void setup() {
   Firebase.setMaxErrorQueue(firebaseData, 30);
   Firebase.enableClassicRequest(firebaseData, true);
   
-  firebaseData.setBSSLBufferSize(1024, 1024);
-  firebaseData.setResponseSize(1024);
-  
   digitalWrite(LED_GREEN, HIGH);
   digitalWrite(LED_BLUE, LOW);
 
+  pinMode(PORTAL_TRIGGER, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(PORTAL_TRIGGER), startConfigPortal, RISING);
+}
+
+void startConfigPortal() {
+  Serial.println("Starting config portal");
+  shouldStartPortal = true;
 }
 
 /**
@@ -167,21 +178,60 @@ void saveConfigCallback () {
  * Arduino main event loop.
  */
 void loop() {
-  int currentTimestamp = getTimestamp();
-  FirebaseJson sensorReading;
-  sensorReading.set("light", 84);
-  sensorReading.set("water", 50);
-  Firebase.set(firebaseData, "plant/" + String(currentTimestamp), sensorReading);
-  delay(10000);
-  int lightReading = analogRead(LDR);
-  int lightPercentage = map(lightReading, 0, 1024, 0, 100);
-
-  int moistReading = analogRead(CSMS);
-  moistReading = max(300, moistReading);
-  moistReading = min(moistReading, 650);
-  int moistPercentage(moistReading, 300, 600, 100, 0);
+  if(shouldStartPortal) {
+    digitalWrite(LED_GREEN, LOW);
+    digitalWrite(LED_BLUE, HIGH);
+    
+    shouldStartPortal = false;
+    WiFiManager wifiManager;
+    WiFiManagerParameter firebaseProjectParam("fbp", "Firebase Project", firebaseProject, 64);
+    wifiManager.addParameter(&firebaseProjectParam);
   
-  Serial.print(lightPercentage);
-  Serial.print("  ");
-  Serial.println(moistPercentage);
+    WiFiManagerParameter firebaseSecretParam("fbs", "Firebase Secret", firebaseSecret, 64);
+    wifiManager.addParameter(&firebaseSecretParam);
+    
+    wifiManager.setSaveConfigCallback(saveConfigCallback);
+    wifiManager.startConfigPortal("Plant", "googlePlant");
+    
+    int pointer = 0x0F;
+    if(shouldSaveConfig) {
+      strcpy(firebaseProject, firebaseProjectParam.getValue());
+      pointer = writeToEEPROM(firebaseProject, pointer, 64);
+      strcpy(firebaseSecret, firebaseSecretParam.getValue());
+      pointer = writeToEEPROM(firebaseSecret, pointer, 64);
+    } else {
+      pointer = readFromEEPROM(firebaseProject, pointer, 64);
+      pointer = readFromEEPROM(firebaseSecret, pointer, 64);
+    }
+    Serial.println("Restarting ESP");
+    delay(1000);
+    ESP.restart();
+  }
+
+  unsigned long currentMillis = millis();
+  if(currentMillis - lastSensorReadMillis > sensorReadDelay) {
+      Serial.println("Reading sensor values");
+      digitalWrite(LED_GREEN, LOW);
+      digitalWrite(LED_RED, HIGH);
+      
+      int currentTimestamp = getTimestamp();
+     
+      int lightReading = analogRead(LDR);
+      int lightPercentage = map(lightReading, 0, 4095, 0, 100);
+    
+      int moistReading = analogRead(CSMS);
+      int moistPercentage = map(moistReading, 0, 4095, 100, 0);
+    
+      Serial.print(lightPercentage);
+      Serial.print("  ");
+      Serial.println(moistPercentage); 
+
+      FirebaseJson sensorReading;
+      sensorReading.set("light", lightPercentage);
+      sensorReading.set("water", moistPercentage);
+      Firebase.set(firebaseData, "plant/" + String(currentTimestamp), sensorReading);
+      digitalWrite(LED_GREEN, HIGH);
+      digitalWrite(LED_RED, LOW);
+      lastSensorReadMillis = millis();
+  }
 }
