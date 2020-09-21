@@ -62,7 +62,9 @@ enum LedColor {
 
 struct SensorReading {
   int light;
+  int lightRaw;
   int water;
+  int waterRaw;
 };
 
 /**
@@ -135,6 +137,15 @@ void setup() {
   Firebase.enableClassicRequest(firebaseData, true);
   
   SensorReading reading = readSensorData();
+  Serial.print("SENSOR LIGHT: ");
+  Serial.println(reading.light);
+  Serial.print("SENSOR LIGHT RAW: ");
+  Serial.println(reading.lightRaw);
+  
+  Serial.print("SENSOR WATER: ");
+  Serial.println(reading.water);
+  Serial.print("SENSOR WATER RAW: ");
+  Serial.println(reading.waterRaw); 
   
   setLEDColor(CYAN);
   sendSensorDataToFirestore(reading);
@@ -256,11 +267,13 @@ SensorReading readSensorData() {
   int lightPercentage = map(lightReading, 0, 4095, 0, 100);
   int waterPercentage = map(waterReading, 0, 4095, 100, 0);
 
-  SensorReading reading = {lightPercentage, waterPercentage};
-  Serial.print("SENSORS: ");
-  Serial.print(reading.light);
-  Serial.print("  ");
-  Serial.println(reading.water); 
+  SensorReading reading = {
+    lightPercentage,
+    lightReading,
+    waterPercentage,
+    waterReading
+  };
+   
   return reading;
 }
 
