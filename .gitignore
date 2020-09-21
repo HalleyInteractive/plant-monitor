@@ -30,3 +30,6 @@
 *.exe
 *.out
 *.app
+
+/schematics/fp-info-cache
+/schematics/*-bak
