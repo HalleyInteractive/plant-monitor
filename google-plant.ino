@@ -43,7 +43,6 @@
 #define CSMS 39
 
 #define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
-#define TIME_TO_SLEEP  20
 #define CONFIG_PORTAL_GPIO GPIO_NUM_33
 
 bool shouldSaveConfig = false;
@@ -67,11 +66,13 @@ struct SensorReading {
   int waterRaw;
 };
 
+const bool DEBUG_SENSORS = false;
+
 /**
  * Setup WifiManager and components.
  */
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   EEPROM.begin(512);
 
   pinMode(LDR, INPUT);
@@ -87,9 +88,12 @@ void setup() {
 
   char firebaseProject[64] = "Firebase Project ID";
   char firebaseSecret[64] = "Firebase Secret";
+  char timeToSleep[16] = "30";
+  
   int pointer = 0x0F;
   pointer = readFromEEPROM(firebaseProject, pointer, 64);
   pointer = readFromEEPROM(firebaseSecret, pointer, 64);
+  pointer = readFromEEPROM(timeToSleep, pointer, 16);
   
 //  wifiManager.resetSettings(); // Reset WiFi settings for debugging.
   WiFiManagerParameter firebaseProjectParam("fbp", "Firebase Project", firebaseProject, 64);
@@ -97,18 +101,28 @@ void setup() {
 
   WiFiManagerParameter firebaseSecretParam("fbs", "Firebase Secret", firebaseSecret, 64);
   wifiManager.addParameter(&firebaseSecretParam);
+
+  WiFiManagerParameter timeToSleepParam("tts", "Time to Sleep (Seconds)", timeToSleep, 16);
+  wifiManager.addParameter(&timeToSleepParam);
   
   wifiManager.setSaveConfigCallback(saveConfigCallback);
 
   print_wakeup_reason();
   esp_sleep_wakeup_cause_t wakeup_reason;
   wakeup_reason = esp_sleep_get_wakeup_cause();
- 
-  wifiManager.setConfigPortalTimeout(180);
+
+  int tts = atoi(timeToSleep);
 
   if(wakeup_reason == 1 || wakeup_reason == 2) {
     // If woken up by external interrupt signal we start the config portal.
     setLEDColor(BLUE);
+    wifiManager.setConfigPortalTimeout(180);
+    wifiManager.startConfigPortal("Plant", "googlePlant");
+  } else if (tts <= 0) {
+    // If timeToSleep isn't parsable as INT.
+    Serial.println("Could not parse timeToSleep");
+    setLEDColor(MAGENTA);
+    wifiManager.setConfigPortalTimeout(180);
     wifiManager.startConfigPortal("Plant", "googlePlant");
   } else {
     wifiManager.autoConnect("Plant", "googlePlant");
@@ -121,6 +135,9 @@ void setup() {
     pointer = writeToEEPROM(firebaseProject, pointer, 64);
     strcpy(firebaseSecret, firebaseSecretParam.getValue());
     pointer = writeToEEPROM(firebaseSecret, pointer, 64);
+    strcpy(timeToSleep, timeToSleepParam.getValue());
+    pointer = writeToEEPROM(timeToSleep, pointer, 16);
+    tts = atoi(timeToSleep);
   }
 
   Serial.print("Firebase Project: ");
@@ -129,7 +146,9 @@ void setup() {
   Serial.print("Firebase Secret: ");
   Serial.println(firebaseSecret);
 
-  
+  Serial.print("Time to Sleep (Seconds): ");
+  Serial.println(timeToSleep);
+
   Firebase.begin(firebaseProject, firebaseSecret);
   Firebase.reconnectWiFi(true);
   Firebase.setMaxRetry(firebaseData, 3);
@@ -151,14 +170,22 @@ void setup() {
   sendSensorDataToFirestore(reading);
   
   setLEDColor(OFF);
-  setESPSleepCycle();
+  if(DEBUG_SENSORS == false) {
+    setESPSleepCycle(tts);
+  } else {
+    setLEDColor(YELLOW);
+  }
 }
 
-void setESPSleepCycle() {
+/**
+ * Puts the ESP into deep sleep, setting interupt and timer
+ * to wake up the ESP.
+ */
+void setESPSleepCycle(int tts) {
   esp_err_t rtc_gpio_pulldown_en(CONFIG_PORTAL_GPIO);
   esp_sleep_enable_ext0_wakeup(CONFIG_PORTAL_GPIO, HIGH);
-  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
-  Serial.println("Setup ESP32 to sleep for every " + String(TIME_TO_SLEEP) + " Seconds");
+  esp_sleep_enable_timer_wakeup(tts * uS_TO_S_FACTOR);
+  Serial.println("Setup ESP32 to sleep for every " + String(tts) + " Seconds");
   esp_deep_sleep_start();
 }
 
@@ -315,5 +342,11 @@ void print_wakeup_reason(){
  * Arduino main event loop.
  */
 void loop() {
-  
+  if(DEBUG_SENSORS) {
+    SensorReading reading = readSensorData();
+     Serial.print("Light_raw:  "); Serial.print(reading.lightRaw); Serial.print("  ");
+     Serial.print("Water_raw:  "); Serial.print(reading.waterRaw); Serial.print("  ");
+//    Serial.print("Light_%:  "); Serial.print(reading.light); Serial.print("  ");
+//    Serial.print("Water_%:  "); Serial.print(reading.water); Serial.print("  ");
+  }
 }
