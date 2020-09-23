@@ -35,6 +35,7 @@
 #include <WebServer.h>
 #include <WiFiManager.h>
 #include <FirebaseESP32.h>
+#include <DateTime.h>
 
 #define LED_RED 12
 #define LED_GREEN 14
@@ -112,17 +113,16 @@ void setup() {
   wakeup_reason = esp_sleep_get_wakeup_cause();
 
   int tts = atoi(timeToSleep);
+  wifiManager.setConfigPortalTimeout(180);
 
   if(wakeup_reason == 1 || wakeup_reason == 2) {
     // If woken up by external interrupt signal we start the config portal.
     setLEDColor(BLUE);
-    wifiManager.setConfigPortalTimeout(180);
     wifiManager.startConfigPortal("Plant", "googlePlant");
   } else if (tts <= 0) {
     // If timeToSleep isn't parsable as INT.
     Serial.println("Could not parse timeToSleep");
     setLEDColor(MAGENTA);
-    wifiManager.setConfigPortalTimeout(180);
     wifiManager.startConfigPortal("Plant", "googlePlant");
   } else {
     wifiManager.autoConnect("Plant", "googlePlant");
@@ -312,11 +312,40 @@ SensorReading readSensorData() {
 void sendSensorDataToFirestore(SensorReading reading) {
   Serial.println("Send Data to Firestore");
   setLEDColor(YELLOW);
+
+  String uuid = getUUID();
+  
   int currentTimestamp = getTimestamp();
   FirebaseJson sensorReading;
   sensorReading.set("light", reading.light);
   sensorReading.set("water", reading.water);
-  Firebase.set(firebaseData, "plant/" + String(currentTimestamp), sensorReading);
+//  sensorReading.set("timestamp", currentTimestamp);
+  
+  Firebase.updateNode(firebaseData, "plants/" + uuid + "/last_update/", sensorReading);
+
+  DateTime.setTime(currentTimestamp, true);
+  String date = DateTime.format("%Y%m%d");
+  Serial.print("DATE: ");
+  Serial.println(date);
+  Firebase.setJSON(firebaseData, "plants/" + uuid + "/logs/" + date + "/" + String(currentTimestamp) +"/", sensorReading);
+}
+
+/**
+ * Returns string of the WiFi mac address
+ * bytes.
+ * @return String of WiFi mac address.
+ */
+String getUUID() {
+  byte mac[6];
+  WiFi.macAddress(mac);
+  String uuid = 
+    String(mac[0], HEX) + 
+    String(mac[1], HEX) + 
+    String(mac[2], HEX) + 
+    String(mac[3], HEX) + 
+    String(mac[4], HEX) + 
+    String(mac[5], HEX);
+  return uuid;
 }
 
 /**
