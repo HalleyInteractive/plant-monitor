@@ -170,6 +170,7 @@ void setup() {
   sendSensorDataToFirestore(reading);
   
   setLEDColor(OFF);
+  
   if(DEBUG_SENSORS == false) {
     setESPSleepCycle(tts);
   } else {
