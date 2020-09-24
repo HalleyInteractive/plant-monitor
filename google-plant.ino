@@ -36,7 +36,7 @@
 #include <WiFiManager.h>
 #include <FirebaseESP32.h>
 #include <DateTime.h>
-//#include <ESPDateTime.h>
+#include <ESPDateTime.h>
 
 #define LED_RED 12
 #define LED_GREEN 14
@@ -47,9 +47,10 @@
 #define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
 #define CONFIG_PORTAL_GPIO GPIO_NUM_33
 
+FirebaseData firebaseData;
 bool shouldSaveConfig = false;
-
 static RTC_NOINIT_ATTR int lastFirebaseCleanup;
+const bool DEBUG_SENSORS = false;
 
 enum LedColor {
   OFF,
@@ -67,10 +68,6 @@ struct SensorReading {
   int water;
   int waterRaw;
 };
-
-const bool DEBUG_SENSORS = false;
-
-FirebaseData firebaseData;
 
 /**
  * Setup WifiManager and components.
@@ -186,6 +183,7 @@ void setup() {
   sendSensorDataToFirestore(reading, currentTimestamp);
 
   if(currentTimestamp > (lastFirebaseCleanup + 86400)) {
+    setIndexOnRules();
     clearFireStoreLogs(uuid, currentTimestamp);
   }
   
@@ -365,6 +363,42 @@ void clearFireStoreLogs(String uuid, int currentTimestamp) {
     Serial.println(logsData.errorReason());
   }
   query.clear();
+}
+
+/** 
+ * Checks if rules have .indexOn timestamp for all plants.
+ * If not this rule will be added.
+ */
+void setIndexOnRules() {
+  FirebaseData rulesData;
+  if(Firebase.getRules(rulesData)) {
+    
+    FirebaseJson &json = rulesData.jsonObject();
+    bool setTimestampIndex = true;
+    FirebaseJsonData timestampIndex;
+    json.get(timestampIndex, "rules/plants/$uid/logs/.indexOn");
+    if(timestampIndex.success) {
+      if(timestampIndex.stringValue == "timestamp") {
+        Serial.println("Timestamp index in place");
+        setTimestampIndex = false;
+      }
+    }
+
+    if(setTimestampIndex) {
+      Serial.println("Timestamp index not found, adding it to the rules");
+      json.set("rules/plants/$uid/logs/.indexOn", "timestamp");
+      String rules = "";
+      json.toString(rules, true);
+      if(!Firebase.setRules(rulesData, rules)) {
+        Serial.println("Could not save Firebase Rules");
+        Serial.println("Reason: " + rulesData.errorReason());
+      }
+    }
+    
+  } else {
+    Serial.println("Could not load Firebase Rules");
+    Serial.println("Reason: " + rulesData.errorReason());
+  }
 }
 
 /**
