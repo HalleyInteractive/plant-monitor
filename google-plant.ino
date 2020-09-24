@@ -410,6 +410,7 @@ String getUUID() {
   byte mac[6];
   WiFi.macAddress(mac);
   String uuid = 
+    "uuid" + 
     String(mac[0], HEX) + 
     String(mac[1], HEX) + 
     String(mac[2], HEX) + 
