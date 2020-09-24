@@ -64,9 +64,7 @@ enum LedColor {
 
 struct SensorReading {
   int light;
-  int lightRaw;
   int water;
-  int waterRaw;
 };
 
 /**
@@ -154,13 +152,8 @@ void setup() {
   SensorReading reading = readSensorData();
   Serial.print("SENSOR LIGHT: ");
   Serial.println(reading.light);
-  Serial.print("SENSOR LIGHT RAW: ");
-  Serial.println(reading.lightRaw);
-  
   Serial.print("SENSOR WATER: ");
   Serial.println(reading.water);
-  Serial.print("SENSOR WATER RAW: ");
-  Serial.println(reading.waterRaw); 
   
   setLEDColor(CYAN);
 
@@ -294,17 +287,13 @@ SensorReading readSensorData() {
   Serial.println("Reading sensor values");
   setLEDColor(RED);
  
-  int lightReading = analogRead(LDR);
-  int waterReading = analogRead(CSMS);
+  int light = analogRead(LDR);
+  int water = analogRead(CSMS);
   
-  int lightPercentage = map(lightReading, 0, 4095, 0, 100);
-  int waterPercentage = map(waterReading, 0, 4095, 100, 0);
 
   SensorReading reading = {
-    lightPercentage,
-    lightReading,
-    waterPercentage,
-    waterReading
+    light,
+    water
   };
    
   return reading;
@@ -446,9 +435,7 @@ void print_wakeup_reason(){
 void loop() {
   if(DEBUG_SENSORS) {
     SensorReading reading = readSensorData();
-     Serial.print("Light_raw:  "); Serial.print(reading.lightRaw); Serial.print("  ");
-     Serial.print("Water_raw:  "); Serial.print(reading.waterRaw); Serial.print("  ");
-//    Serial.print("Light_%:  "); Serial.print(reading.light); Serial.print("  ");
-//    Serial.print("Water_%:  "); Serial.print(reading.water); Serial.print("  ");
+     Serial.print("Light:  "); Serial.print(reading.light); Serial.print("  ");
+     Serial.print("Water:  "); Serial.print(reading.water); Serial.println("");
   }
 }
