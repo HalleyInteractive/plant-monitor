@@ -35,6 +35,8 @@
 #include <WebServer.h>
 #include <WiFiManager.h>
 #include <FirebaseESP32.h>
+#include <DateTime.h>
+//#include <ESPDateTime.h>
 
 #define LED_RED 12
 #define LED_GREEN 14
@@ -47,7 +49,7 @@
 
 bool shouldSaveConfig = false;
 
-FirebaseData firebaseData;
+static RTC_NOINIT_ATTR int lastFirebaseCleanup;
 
 enum LedColor {
   OFF,
@@ -67,6 +69,8 @@ struct SensorReading {
 };
 
 const bool DEBUG_SENSORS = false;
+
+FirebaseData firebaseData;
 
 /**
  * Setup WifiManager and components.
@@ -112,17 +116,15 @@ void setup() {
   wakeup_reason = esp_sleep_get_wakeup_cause();
 
   int tts = atoi(timeToSleep);
+  wifiManager.setConfigPortalTimeout(180);
 
   if(wakeup_reason == 1 || wakeup_reason == 2) {
     // If woken up by external interrupt signal we start the config portal.
     setLEDColor(BLUE);
-    wifiManager.setConfigPortalTimeout(180);
     wifiManager.startConfigPortal("Plant", "googlePlant");
   } else if (tts <= 0) {
-    // If timeToSleep isn't parsable as INT.
     Serial.println("Could not parse timeToSleep");
     setLEDColor(MAGENTA);
-    wifiManager.setConfigPortalTimeout(180);
     wifiManager.startConfigPortal("Plant", "googlePlant");
   } else {
     wifiManager.autoConnect("Plant", "googlePlant");
@@ -151,9 +153,6 @@ void setup() {
 
   Firebase.begin(firebaseProject, firebaseSecret);
   Firebase.reconnectWiFi(true);
-  Firebase.setMaxRetry(firebaseData, 3);
-  Firebase.setMaxErrorQueue(firebaseData, 30);
-  Firebase.enableClassicRequest(firebaseData, true);
   
   SensorReading reading = readSensorData();
   Serial.print("SENSOR LIGHT: ");
@@ -167,7 +166,28 @@ void setup() {
   Serial.println(reading.waterRaw); 
   
   setLEDColor(CYAN);
-  sendSensorDataToFirestore(reading);
+
+  DateTime.setServer("nl.pool.ntp.org");
+  DateTime.begin();
+  if(!DateTime.isTimeValid()) {
+    Serial.println("Failed to get time from server.");
+  }
+  
+  Serial.print("NOW: ");
+  Serial.println(DateTime.now());
+  int currentTimestamp = DateTime.now();
+  
+  String uuid = getUUID();
+
+  Firebase.setMaxRetry(firebaseData, 3);
+  Firebase.setMaxErrorQueue(firebaseData, 30);
+  Firebase.enableClassicRequest(firebaseData, true);
+  
+  sendSensorDataToFirestore(reading, currentTimestamp);
+
+  if(currentTimestamp > (lastFirebaseCleanup + 86400)) {
+    clearFireStoreLogs(uuid, currentTimestamp);
+  }
   
   setLEDColor(OFF);
   
@@ -188,19 +208,6 @@ void setESPSleepCycle(int tts) {
   esp_sleep_enable_timer_wakeup(tts * uS_TO_S_FACTOR);
   Serial.println("Setup ESP32 to sleep for every " + String(tts) + " Seconds");
   esp_deep_sleep_start();
-}
-
-/**
- * Sets current timestamp in Firebase, reads it and 
- * returns value.
- * @return Current timestamp in seconds.
- */
-int getTimestamp() {
-  Firebase.setTimestamp(firebaseData,  "/current/timestamp");
-  int currentTimestamp = firebaseData.intData();
-  Serial.print("TIMESTAMP (Seconds): ");
-  Serial.println(currentTimestamp);
-  return currentTimestamp;
 }
 
 /**
@@ -309,14 +316,73 @@ SensorReading readSensorData() {
  * Sends Sensor Reading data to Firestore.
  * @param reading with sensor values.
  */
-void sendSensorDataToFirestore(SensorReading reading) {
+void sendSensorDataToFirestore(SensorReading reading, int currentTimestamp) {
   Serial.println("Send Data to Firestore");
   setLEDColor(YELLOW);
-  int currentTimestamp = getTimestamp();
+
+  String uuid = getUUID();
+  
   FirebaseJson sensorReading;
   sensorReading.set("light", reading.light);
   sensorReading.set("water", reading.water);
-  Firebase.set(firebaseData, "plant/" + String(currentTimestamp), sensorReading);
+  sensorReading.set("timestamp", currentTimestamp);
+  
+  Firebase.updateNode(firebaseData, "plants/" + uuid + "/last_update/", sensorReading);
+  Firebase.setJSON(firebaseData, "plants/" + uuid + "/logs/" + String(currentTimestamp) +"/", sensorReading);
+}
+
+/**
+ * Deletes all logs for this device older then 24H.
+ */
+void clearFireStoreLogs(String uuid, int currentTimestamp) {
+  Serial.println("Clean up Firestore logs...");
+  lastFirebaseCleanup = currentTimestamp;
+  
+  QueryFilter query;
+  query.orderBy("timestamp");
+  query.startAt(0);
+  query.endAt((currentTimestamp - 86400));
+
+  FirebaseData logsData;
+  Firebase.setMaxRetry(logsData, 3);
+  Firebase.setMaxErrorQueue(logsData, 30);
+  Firebase.enableClassicRequest(logsData, true);
+  
+  if(Firebase.getJSON(logsData, "plants/" + uuid + "/logs", query)) {
+    FirebaseJson &oldLogs = logsData.jsonObject();
+    size_t len = oldLogs.iteratorBegin();
+    String key, value = "";
+    int type = 0;
+    for(size_t i = 0; i < len; i++) {
+      oldLogs.iteratorGet(i, type, key, value);
+      if(key != "water" && key != "light" && key != "timestamp") {
+        Serial.println("DELETE: plants/" + uuid + "/logs/" + key);
+        Firebase.deleteNode(firebaseData, "plants/" + uuid + "/logs/" + key);
+      }
+    }
+    oldLogs.iteratorEnd();
+  } else {
+    Serial.println(logsData.errorReason());
+  }
+  query.clear();
+}
+
+/**
+ * Returns string of the WiFi mac address
+ * bytes.
+ * @return String of WiFi mac address.
+ */
+String getUUID() {
+  byte mac[6];
+  WiFi.macAddress(mac);
+  String uuid = 
+    String(mac[0], HEX) + 
+    String(mac[1], HEX) + 
+    String(mac[2], HEX) + 
+    String(mac[3], HEX) + 
+    String(mac[4], HEX) + 
+    String(mac[5], HEX);
+  return uuid;
 }
 
 /**
