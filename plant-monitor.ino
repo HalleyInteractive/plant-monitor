@@ -15,10 +15,10 @@
  */
  
 /**
- * Google Plant
+ * Plant Monitor
  * 
  * A small device you can plug in the soil of your plant, it will
- * record signals such as the amount of sunlight and water.
+ * record the amount of sunlight and water.
  * 
  * The circuit:
  * - ESP8266
@@ -26,7 +26,7 @@
  * - LED
  * - Capacitive Soil Sensor
  * 
- * https://github.com/HalleyInteractive/google-plant
+ * https://github.com/HalleyInteractive/plant-monitor
  */
 
 #include <EEPROM.h>
@@ -116,13 +116,13 @@ void setup() {
   if(wakeup_reason == 1 || wakeup_reason == 2) {
     // If woken up by external interrupt signal we start the config portal.
     setLEDColor(BLUE);
-    wifiManager.startConfigPortal("Plant", "googlePlant");
+    wifiManager.startConfigPortal("Plant", "TakeCareOfMe");
   } else if (tts <= 0) {
     Serial.println("Could not parse timeToSleep");
     setLEDColor(MAGENTA);
-    wifiManager.startConfigPortal("Plant", "googlePlant");
+    wifiManager.startConfigPortal("Plant", "TakeCareOfMe");
   } else {
-    wifiManager.autoConnect("Plant", "googlePlant");
+    wifiManager.autoConnect("Plant", "TakeCareOfMe");
   }
   
   setLEDColor(GREEN);
