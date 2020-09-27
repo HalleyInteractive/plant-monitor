@@ -171,6 +171,7 @@ void setup() {
 
   Firebase.setMaxRetry(firebaseData, 3);
   Firebase.setMaxErrorQueue(firebaseData, 30);
+  Firebase.setReadTimeout(firebaseData, 1000 * 60 * 10);
   Firebase.enableClassicRequest(firebaseData, true);
   
   sendSensorDataToFirestore(reading, currentTimestamp);
@@ -324,16 +325,21 @@ void sendSensorDataToFirestore(SensorReading reading, int currentTimestamp) {
 void clearFireStoreLogs(String uuid, int currentTimestamp) {
   Serial.println("Clean up Firestore logs...");
   lastFirebaseCleanup = currentTimestamp;
+  int deleteUntil = (currentTimestamp - 86400);
+  Serial.print("DELETE ALL UNTIL: ");
+  Serial.println(deleteUntil);
   
   QueryFilter query;
   query.orderBy("timestamp");
   query.startAt(0);
-  query.endAt((currentTimestamp - 86400));
+  query.endAt(deleteUntil);
+  query.limitToFirst(50);
 
   FirebaseData logsData;
   Firebase.setMaxRetry(logsData, 3);
   Firebase.setMaxErrorQueue(logsData, 30);
   Firebase.enableClassicRequest(logsData, true);
+  Firebase.setReadTimeout(logsData, 1000 * 60 * 10);
   
   if(Firebase.getJSON(logsData, "plants/" + uuid + "/logs", query)) {
     FirebaseJson &oldLogs = logsData.jsonObject();
@@ -348,6 +354,9 @@ void clearFireStoreLogs(String uuid, int currentTimestamp) {
       }
     }
     oldLogs.iteratorEnd();
+    if(len >= 50) {
+      lastFirebaseCleanup = 0;
+    }
   } else {
     Serial.println(logsData.errorReason());
   }
