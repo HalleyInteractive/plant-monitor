@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://ajax.googleapis.com/ajax/libs/d3js/6.1.1/d3.min.js"></script>
+    <title>Plant Monitor</title>
+  </head>
+
+  <body class="">
+   <div class="row">
+        <div class="col s10"><h1>Plant Monitor</h1></div>
+        <div class="col s2">
+            <a id="sign-in-button" class="waves-effect waves-light btn-small">Sign in with Google</a>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col s3">    
+        <p>Your plants:</p>
+            <ul id="plantlist">
+            </ul>
+            <a id="load-data-button" class="waves-effect waves-light btn-small">How much light am I getting?</a>
+        </div>
+        <div class="col s9">
+            <div id="graph"></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <!-- Import and configure the Firebase SDK -->
+    <!-- These scripts are made available when the app is served or deployed on Firebase Hosting -->
+    <!-- If you do not serve/host your project using Firebase Hosting see https://firebase.google.com/docs/web/setup -->
+    <script src="/__/firebase/7.21.0/firebase-app.js"></script>
+    <script src="/__/firebase/7.21.0/firebase-auth.js"></script>
+    <script src="/__/firebase/7.21.0/firebase-database.js"></script>
+    <script src="/__/firebase/init.js"></script>
+    <script src="scripts/index.js"></script>
+  </body>
+</html>
