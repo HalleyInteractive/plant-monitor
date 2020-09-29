@@ -34,7 +34,7 @@ function startDatabaseQueries() {
 	        .html(String);
     });
 
-    const logsRef = firebase.database().ref('plants/uuid2462abf3ae5c/logs').limitToLast(100);
+    const logsRef = firebase.database().ref('plants/uuid2462abf3ae5c/logs').limitToLast(400);
     
     logsRef.once("value", function(snapshot) {
         var tmp = Object.values(snapshot.val())
@@ -84,7 +84,7 @@ window.addEventListener('load', function() {
 startDatabaseQueries();
 
 /**
- * D3 stuff, close your eyes
+ * Visualisation 
  */
 
 // dimensions and margins
@@ -105,6 +105,14 @@ var graph = svg
 const xScale = d3.scaleTime().range([0, width])
 const yScale = d3.scaleLinear().range([height, 0])
 
+const xAxis = svg.append("g")
+    .attr("class", "axis")
+    .attr("transform", `translate(50,${height + margin.bottom})`)
+        
+const yAxis = svg.append("g")
+    .attr("class", "axis")
+    .attr("transform", `translate(${margin.left},0)`)
+
 /** 
 * Some simple application logic
 */
@@ -120,24 +128,15 @@ function buildLineGraph(data) {
     xScale.domain(d3.extent(data, d => d.timestamp))
     yScale.domain(d3.extent(data, d => d.light))
 
-    // refactor to main graph draw
-    svg.append("g")
-        .attr("class", "axis")
-        .attr("transform", `translate(50,${height + margin.bottom})`)
+    xAxis
         .call(d3.axisBottom(xScale)
         .tickFormat(d3.timeFormat("%a %H:%M"))
         .ticks(width / 80).tickSizeOuter(0))
-        
-    svg.append("g")
-        .attr("class", "axis")
-        .attr("transform", `translate(${margin.left},0)`)
+
+    yAxis
         .call(d3.axisLeft(yScale))
         .call(g => g.select(".domain").remove())
-        .call(g => g.select(".tick:last-of-type text").clone()
-            .attr("x", 3)
-            .attr("text-anchor", "start")
-            .attr("font-weight", "bold")
-            .text(data.y))
+        .call(g => g.select(".tick:last-of-type text").clone())
 
     // Update line path with data
     graph
