@@ -34,7 +34,7 @@ function startDatabaseQueries() {
 	        .html(String);
     });
 
-    const logsRef = firebase.database().ref('plants/uuid2462abf3ae5c/logs').limitToLast(400);
+    const logsRef = firebase.database().ref('plants/uuid2462abf3ae5c/logs').limitToLast(1000);
     
     logsRef.once("value", function(snapshot) {
         var tmp = Object.values(snapshot.val())
@@ -88,17 +88,17 @@ startDatabaseQueries();
  */
 
 // dimensions and margins
-const margin = ({top: 20, right: 30, bottom: 30, left: 40})
-var width = 900 - margin.left - margin.right, height = 400 - margin.top - margin.bottom;
+const margin = {top: 20, right: 30, bottom: 30, left: 40}
+const width = 900 - margin.left - margin.right, height = 400 - margin.top - margin.bottom;
 
 // append the svg object 
-var svg = d3
+const svg = d3
     .select("#graph")
     .append("svg")
     .attr("width", width + margin.left + margin.right)
     .attr("height", height + margin.top + margin.bottom);
 
-var graph = svg
+const graph = svg
     .append("g")
     .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
@@ -113,6 +113,20 @@ const yAxis = svg.append("g")
     .attr("class", "axis")
     .attr("transform", `translate(${margin.left},0)`)
 
+const pathLight = graph
+    .append('g')
+    .append("path")  
+    .attr('fill', 'none')
+    .attr('stroke', '#ef6c00')
+    .attr('stroke-width', 1)
+
+const pathWater = graph
+    .append('g')
+    .append("path")  
+    .attr('fill', 'none')
+    .attr('stroke', '#0288d1')
+    .attr('stroke-width', 1)
+
 /** 
 * Some simple application logic
 */
@@ -120,10 +134,15 @@ function buildLineGraph(data) {
     console.log('building graph');
     console.log(data);
 
-    var line = d3.line()
+    const lineLight = d3.line()
         .defined(d => !isNaN(d.light))
         .x(d => xScale(d.timestamp))
         .y(d => yScale(d.light))
+
+    const lineWater = d3.line()
+        .defined(d => !isNaN(d.water))
+        .x(d => xScale(d.timestamp))
+        .y(d => yScale(d.water))
 
     xScale.domain(d3.extent(data, d => d.timestamp))
     yScale.domain(d3.extent(data, d => d.light))
@@ -138,13 +157,11 @@ function buildLineGraph(data) {
         .call(g => g.select(".domain").remove())
         .call(g => g.select(".tick:last-of-type text").clone())
 
-    // Update line path with data
-    graph
-        .append('g')
-        .append("path")  
+    pathLight
         .datum(data)
-        .attr('fill', 'none')
-        .attr('stroke', 'red')
-        .attr('stroke-width', 1)
-        .attr('d', line)    
+        .attr('d', lineLight)    
+
+    pathWater
+        .datum(data)
+        .attr('d', lineWater)            
 }
