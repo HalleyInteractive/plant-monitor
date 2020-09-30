@@ -34,7 +34,7 @@ function startDatabaseQueries() {
 	        .html(String);
     });
 
-    const logsRef = firebase.database().ref('plants/uuid2462abf3ae5c/logs').limitToLast(1000);
+    const logsRef = firebase.database().ref('plants/uuid2462abf3ae5c/logs').limitToLast(100);
     
     logsRef.once("value", function(snapshot) {
         var tmp = Object.values(snapshot.val())
@@ -86,6 +86,12 @@ startDatabaseQueries();
 /**
  * Visualisation 
  */
+const svgDonut = d3.select('#donut')
+     .append('svg')
+     .attr('width', 400)
+     .attr('height', 600)
+     .append('g')
+     .attr('transform', 'translate(' + (400 / 2) + ',' + (600 / 2) + ')');
 
 // dimensions and margins
 const margin = {top: 20, right: 30, bottom: 30, left: 40}
@@ -103,15 +109,20 @@ const graph = svg
     .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
 const xScale = d3.scaleTime().range([0, width])
-const yScale = d3.scaleLinear().range([height, 0])
+const yScaleLight = d3.scaleLinear().range([height, 0])
+const yScaleWater = d3.scaleLinear().range([height, 0])
 
 const xAxis = svg.append("g")
     .attr("class", "axis")
     .attr("transform", `translate(50,${height + margin.bottom})`)
         
-const yAxis = svg.append("g")
+const yAxisLight = svg.append("g")
     .attr("class", "axis")
     .attr("transform", `translate(${margin.left},0)`)
+
+const yAxisWater = svg.append("g")
+    .attr("class", "axis")
+    .attr("transform", `translate(${width + margin.left + margin.right},0)`)
 
 const pathLight = graph
     .append('g')
@@ -137,23 +148,29 @@ function buildLineGraph(data) {
     const lineLight = d3.line()
         .defined(d => !isNaN(d.light))
         .x(d => xScale(d.timestamp))
-        .y(d => yScale(d.light))
+        .y(d => yScaleLight(d.light))
 
     const lineWater = d3.line()
         .defined(d => !isNaN(d.water))
         .x(d => xScale(d.timestamp))
-        .y(d => yScale(d.water))
+        .y(d => yScaleWater(d.water))
 
     xScale.domain(d3.extent(data, d => d.timestamp))
-    yScale.domain(d3.extent(data, d => d.light))
+    yScaleLight.domain(d3.extent(data, d => d.light))
+    yScaleWater.domain(d3.extent(data, d => d.water))
 
     xAxis
         .call(d3.axisBottom(xScale)
         .tickFormat(d3.timeFormat("%a %H:%M"))
         .ticks(width / 80).tickSizeOuter(0))
 
-    yAxis
-        .call(d3.axisLeft(yScale))
+    yAxisLight
+        .call(d3.axisLeft(yScaleLight))
+        .call(g => g.select(".domain").remove())
+        .call(g => g.select(".tick:last-of-type text").clone())
+
+    yAxisWater
+        .call(d3.axisLeft(yScaleWater))
         .call(g => g.select(".domain").remove())
         .call(g => g.select(".tick:last-of-type text").clone())
 
