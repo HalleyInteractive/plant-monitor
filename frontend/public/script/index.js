@@ -39,6 +39,7 @@ function startDatabaseQueries() {
     logsRef.once("value", function(snapshot) {
         var tmp = Object.values(snapshot.val())
         tmp.forEach(function(d){ d.timestamp = new Date(d.timestamp * 1000) });
+        drawDonuts(tmp);
         buildLineGraph(tmp);
     }, function (error) {
         console.log("Error: " + error.code);
@@ -80,23 +81,44 @@ window.addEventListener('load', function() {
   firebase.auth().onAuthStateChanged(onAuthStateChanged);
 }, false);
 
-
 startDatabaseQueries();
 
 /**
  * Visualisation 
  */
-const svgDonut = d3.select('#donut')
-     .append('svg')
-     .attr('width', 400)
-     .attr('height', 600)
-     .append('g')
-     .attr('transform', 'translate(' + (400 / 2) + ',' + (600 / 2) + ')');
+function drawDonuts(data) {
+    const donutDims = {width: 360, height: 360, radius: 180, hole: 75}
 
-// dimensions and margins
+    const svgDonut = d3.select('#donut')
+        .append('svg')
+        .attr('width', donutDims.width)
+        .attr('height', donutDims.height)
+        .append('g')
+        .attr('transform', 'translate(' + (donutDims.width / 2) + ',' + (donutDims.height / 2) + ')');
+
+    const arc = d3.arc()
+        .innerRadius(donutDims.radius - donutDims.hole)
+        .outerRadius(donutDims.radius);
+
+    const pie = d3.pie()
+        .value(function (d) {
+            return d.water;
+        })
+        .sort(null);
+
+    const path = svgDonut.selectAll('path')
+        .data(pie(data))
+        .enter()
+        .append('path')
+        .attr('d', arc)
+        .attr('fill', 'red')
+        .attr('transform', 'translate(0, 0)')
+
+}
+
+
 const margin = {top: 20, right: 30, bottom: 30, left: 40}
 const width = 900 - margin.left - margin.right, height = 400 - margin.top - margin.bottom;
-
 // append the svg object 
 const svg = d3
     .select("#graph")
