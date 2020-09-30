@@ -25,13 +25,19 @@ function startDatabaseQueries() {
     const plantsRef = firebase.database().ref("plants");
 
     plantsRef.once("value", function(snap) {
-	    var ul = d3.select('#plantlist');
-
-	    ul.selectAll('li')
-	        .data(Object.keys(snap.val()))
-	        .enter()
-	        .append('li')
-	        .html(String);
+        const plantList = document.getElementById("plant-list");
+	    for(const plant of Object.keys(snap.val())) {
+            const navLink = document.createElement("a");
+            navLink.className = "mdl-navigation__link";
+            const icon = document.createElement("i");
+            icon.className = "plant-icon mdl-color-text--blue-grey-400 material-icons";
+            icon.innerHTML = "local_florist";
+            const name = document.createElement("span");
+            name.textContent = plant;
+            navLink.appendChild(icon);
+            navLink.appendChild(name);
+            plantList.appendChild(navLink);
+        }
     });
 
     const logsRef = firebase.database().ref('plants/uuid2462abf3ae5c/logs').limitToLast(1000);
@@ -60,22 +66,27 @@ function onAuthStateChanged(user) {
 
   if (user) {
     currentUID = user.uid;
+    const avatar = document.querySelector("img.user-avatar");
+    avatar.src = `${user.photoURL}=s48`;
+    avatar.classList.remove("hidden");
+    const email = document.querySelector("span.user-email")
+    email.innerHTML = user.email;
+    email.classList.remove("hidden");
+    document.getElementById("sign-in-button").classList.add("hidden");
   } else {
-    // Set currentUID to null.
     currentUID = null;
+    document.querySelector("img.user-avatar").classList.add("hidden");
+    document.querySelector("span.user-email").classList.add("hidden");
+    document.getElementById("sign-in-button").classList.remove("hidden");
   }
 }
 
 window.addEventListener('load', function() {
   // Bind Sign in button.
-  signInButton.addEventListener('click', function() {
-    var provider = new firebase.auth.GoogleAuthProvider();
+  const provider = new firebase.auth.GoogleAuthProvider();
+  signInButton.addEventListener('click', () => {
     firebase.auth().signInWithPopup(provider);
   });
-  loadDataButton.addEventListener('click', function() {
-    //startDatabaseQueries();
-  });
-
   // Listen for auth state changes
   firebase.auth().onAuthStateChanged(onAuthStateChanged);
 }, false);

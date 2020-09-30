@@ -5,3 +5,27 @@
 #graph .axis {
     color:darkgrey;
 }
+
+html, body {
+    font-family: 'Roboto', 'Helvetica', sans-serif;
+}
+
+.plant-icon {
+    margin: 0px 5px;
+}
+
+.user-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 24px;
+}
+
+.pie-charts {
+    -webkit-align-items: center;
+        -ms-flex-align: center;
+            align-items: center;
+}
+
+.hidden {
+    display: none;
+}
