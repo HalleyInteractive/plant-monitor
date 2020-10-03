@@ -4,35 +4,53 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"
-    />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:regular,bold,italic,thin,light,bolditalic,black,medium&amp;lang=en">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.cyan-light_blue.min.css">
     <link rel="stylesheet" href="style.css" />
     <script src="https://ajax.googleapis.com/ajax/libs/d3js/6.1.1/d3.min.js"></script>
     <title>Plant Monitor</title>
   </head>
 
   <body class="">
-   <div class="row">
-        <div class="col s10"><h1>Plant Monitor</h1></div>
-        <div class="col s2">
-            <a id="sign-in-button" class="waves-effect waves-light btn-small">Sign in with Google</a>
+    <div class="mdl-layout mdl-js-layout mdl-layout--fixed-drawer mdl-layout--fixed-header">
+      <header class="mdl-layout__header mdl-color--grey-100 mdl-color-text--grey-600">
+        <div class="mdl-layout__header-row">
+          <span class="mdl-layout-title">Plant Monitor</span>
+          <div class="mdl-layout-spacer"></div>
+          <ul class="mdl-menu mdl-js-menu mdl-js-ripple-effect mdl-menu--bottom-right" for="hdrbtn">
+            <li class="mdl-menu__item">About</li>
+            <li class="mdl-menu__item">Contact</li>
+            <li class="mdl-menu__item">Legal information</li>
+          </ul>
         </div>
-    </div>
-    <div class="row">
-        <div class="col s3">    
-        <p>Your plants:</p>
-            <ul id="plantlist">
-            </ul>
-            <a id="load-data-button" class="waves-effect waves-light btn-small">How much light am I getting?</a>
-        </div>
-        <div class="col s9">
+      </header>
+      <div class="mdl-layout__drawer mdl-color--blue-grey-900 mdl-color-text--blue-grey-50">
+        <header>
+          <img src="images/user.jpg" width="48" height="48" class="user-avatar">
+          <div class="avatar-dropdown">
+            <span class="user-email">hello@example.com</span>
+          </div>
+          <a id="sign-in-button" class="waves-effect waves-light btn-small">Sign in with Google</a>
+        </header>
+        <nav id="plant-list" class="mdl-navigation mdl-color--blue-grey-800">
+        </nav>
+      </div>
+      <main class="mdl-layout__content mdl-color--grey-100">
+        <div class="mdl-grid">
+          <div class="pie-charts mdl-color--white mdl-shadow--2dp mdl-cell mdl-cell--12-col">
+            <h3 class="mdl-cell">Current</h3>
+            <div class="pie-chart mdl-cell mdl-cell--4-col mdl-cell--3-col-desktop"><div id="donut-water"></div></div>
+            <div class="pie-chart mdl-cell mdl-cell--4-col mdl-cell--3-col-desktop"><div id="donut-light"></div></div>
+          </div>
+          <div class="mdl-color--white mdl-shadow--2dp mdl-cell mdl-cell--12-col">
+            <h3 class="mdl-cell">Historical</h3>
             <div id="graph"></div>
+          </div>
         </div>
+      </main>
     </div>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script src="https://code.getmdl.io/1.3.0/material.min.js"></script>
     <!-- Import and configure the Firebase SDK -->
     <!-- These scripts are made available when the app is served or deployed on Firebase Hosting -->
     <!-- If you do not serve/host your project using Firebase Hosting see https://firebase.google.com/docs/web/setup -->
@@ -40,6 +58,6 @@
     <script src="/__/firebase/7.21.0/firebase-auth.js"></script>
     <script src="/__/firebase/7.21.0/firebase-database.js"></script>
     <script src="/__/firebase/init.js"></script>
-    <script src="script/index.js"></script>
+    <script src="index.js"></script>
   </body>
 </html>

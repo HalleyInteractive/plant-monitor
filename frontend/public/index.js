@@ -42,6 +42,12 @@ function startDatabaseQueries() {
         }
     });
 
+    const currentRef = firebase.database().ref("plants/uuid2462abf3ae5c/last_update")
+
+    currentRef.on("value", function(snapshot) {
+        drawDonuts(snapshot.val());
+    });
+
     const logsRef = firebase.database().ref('plants/uuid2462abf3ae5c/logs').limitToLast(100);
     
     logsRef.once("value", function(snapshot) {
@@ -53,13 +59,12 @@ function startDatabaseQueries() {
             d.water_perc = ((d.water - waterRange[0]) * 100) / (waterRange[1] - waterRange[0])
         });
 
-        drawDonuts(tmp);
         buildLineGraph(tmp);
     }, function (error) {
         console.log("Error: " + error.code);
     });
 
-    listeningFirebaseRefs.push(logsRef, plantsRef);
+    listeningFirebaseRefs.push(logsRef, plantsRef, currentRef);
 }
 
 var currentUID;
@@ -100,38 +105,58 @@ window.addEventListener('load', function() {
   firebase.auth().onAuthStateChanged(onAuthStateChanged);
 }, false);
 
-startDatabaseQueries();
+startDatabaseQueries();       
+
 
 /**
  * Visualisation 
  */
 function drawDonuts(data) {
-    const donutDims = {width: 180, height: 180, radius: 90, hole: 20}
+    const donutDims = {width: 180, height: 180, radius: 90, hole: 40}
+    const t = [{type: 'water', value: 80},{type: 'light', value: 20}]
+    const colors = ['#64b5f6', '#eeeeee', '#616161', '#ff9b83']
 
-    const svgDonut = d3.select('#donut-water')
-        .append('svg')
-        .attr('width', donutDims.width)
-        .attr('height', donutDims.height)
-        .append('g')
-        .attr('transform', 'translate(' + (donutDims.width / 2) + ',' + (donutDims.height / 2) + ')');
+    const colorScale = d3.scaleOrdinal( t.map(d => d.type), colors )
+
+    const pie = d3.pie()
+        .padAngle(0.005)
+        .sort(null)
+        .value(d => d.value)
+    const pieArcs = pie(t);
 
     const arc = d3.arc()
         .innerRadius(donutDims.radius - donutDims.hole)
         .outerRadius(donutDims.radius);
 
-    const pie = d3.pie()
-        .value(function (d) {
-            return d.water;
-        })
-        .sort(null);
+    const svg = d3.select('#donut-water')
+        .append('svg')
+        .attr('width', donutDims.width)
+        .attr('height', donutDims.height)
 
-    const path = svgDonut.selectAll('path')
-        .data(pie(data))
-        .enter()
-        .append('path')
-        .attr('d', arc)
-        .attr('fill', 'red')
-        .attr('transform', 'translate(0, 0)')
+    const donutg = svg.append('g')
+        .attr('class', 'donut-container')
+        .attr('transform', `translate(${ donutDims.width / 2 },${ donutDims.height / 2 })`)
+        
+    donutg.selectAll('path')
+        .data(pieArcs)
+        .join('path')
+            .style('stroke', 'white')
+            .style('stroke-width', 2)
+            .style('fill', d => colorScale( d.data.type ))
+            .attr('d', arc)
+
+  donutg.selectAll("text")
+    .data([t])
+    .join("text")
+    .attr("text-anchor", "middle")
+    .attr("dy", ".3em")
+    .style("font", "10px sans-serif")
+    .style("max-width", "100%")
+    .style("height", "auto")
+    .attr("text-anchor", "middle")
+    .attr("fill", '#616161')
+    .text( d => d[0].value + "%")
+    .attr("transform", `scale(${ (donutDims.radius - donutDims.hole)/15 })`);
 
 }
 
@@ -158,11 +183,11 @@ const xAxis = svg.append("g")
         
 const yAxisLight = svg.append("g")
     .attr("class", "axis")
-    .attr("transform", `translate(${margin.left},0)`)
+    .attr("transform", `translate(${margin.left}, ${margin.top})`)
 
 const yAxisWater = svg.append("g")
     .attr("class", "axis")
-    .attr("transform", `translate(${width + margin.left + margin.right},0)`)
+    .attr("transform", `translate(${width + margin.left}, ${margin.top})`)
 
 const pathLight = graph
     .append('g')
@@ -214,7 +239,7 @@ function buildLineGraph(data) {
         .call(g => g.select(".tick:last-of-type text").clone())
 
     yAxisWater
-        .call(d3.axisLeft(yScaleWater))
+        .call(d3.axisRight(yScaleWater))
         .call(g => g.select(".domain").remove())
         .call(g => g.select(".tick:last-of-type text").clone())
 
