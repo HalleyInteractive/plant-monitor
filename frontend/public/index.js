@@ -16,12 +16,13 @@
 'use strict';
 
 // Shortcuts to DOM Elements.
-var recentWaterSection = document.getElementById('recent-water-list');
-var signInButton = document.getElementById('sign-in-button');
-var loadDataButton = document.getElementById('load-data-button');
-var listeningFirebaseRefs = [];
-const lightRange = [2500,4000]
-const waterRange = [2100,2200]
+const recentWaterSection = document.getElementById('recent-water-list')
+const signInButton = document.getElementById('sign-in-button')
+const loadDataButton = document.getElementById('load-data-button')
+const listeningFirebaseRefs = []
+const lightRange = [1500,4000]
+const waterRange = [500,3000]
+const uuid = 'uuid2462abf3ae5c'
 
 function startDatabaseQueries() {
     const plantsRef = firebase.database().ref("plants");
@@ -42,15 +43,15 @@ function startDatabaseQueries() {
         }
     });
 
-    const currentRef = firebase.database().ref("plants/uuid2462abf3ae5c/last_update")
+    const currentRef = firebase.database().ref(`plants/${uuid}/last_update`)
 
-    currentRef.on("value", function(snapshot) {
+    currentRef.once("value", function(snapshot) {
         drawDonuts(snapshot.val());
     });
 
-    const logsRef = firebase.database().ref('plants/uuid2462abf3ae5c/logs').limitToLast(100);
+    const logsRef = firebase.database().ref(`plants/${uuid}/logs`).limitToLast(500);
     
-    logsRef.once("value", function(snapshot) {
+    logsRef.on("value", function(snapshot) {
         var tmp = Object.values(snapshot.val())
 
         tmp.forEach(function(d){ 
@@ -59,7 +60,7 @@ function startDatabaseQueries() {
             d.water_perc = ((d.water - waterRange[0]) * 100) / (waterRange[1] - waterRange[0])
         });
 
-        buildLineGraph(tmp);
+        updateLines(tmp)
     }, function (error) {
         console.log("Error: " + error.code);
     });
@@ -111,55 +112,6 @@ startDatabaseQueries();
 /**
  * Visualisation 
  */
-function drawDonuts(data) {
-    const donutDims = {width: 180, height: 180, radius: 90, hole: 40}
-    const t = [{type: 'water', value: 80},{type: 'light', value: 20}]
-    const colors = ['#64b5f6', '#eeeeee', '#616161', '#ff9b83']
-
-    const colorScale = d3.scaleOrdinal( t.map(d => d.type), colors )
-
-    const pie = d3.pie()
-        .padAngle(0.005)
-        .sort(null)
-        .value(d => d.value)
-    const pieArcs = pie(t);
-
-    const arc = d3.arc()
-        .innerRadius(donutDims.radius - donutDims.hole)
-        .outerRadius(donutDims.radius);
-
-    const svg = d3.select('#donut-water')
-        .append('svg')
-        .attr('width', donutDims.width)
-        .attr('height', donutDims.height)
-
-    const donutg = svg.append('g')
-        .attr('class', 'donut-container')
-        .attr('transform', `translate(${ donutDims.width / 2 },${ donutDims.height / 2 })`)
-        
-    donutg.selectAll('path')
-        .data(pieArcs)
-        .join('path')
-            .style('stroke', 'white')
-            .style('stroke-width', 2)
-            .style('fill', d => colorScale( d.data.type ))
-            .attr('d', arc)
-
-  donutg.selectAll("text")
-    .data([t])
-    .join("text")
-    .attr("text-anchor", "middle")
-    .attr("dy", ".3em")
-    .style("font", "10px sans-serif")
-    .style("max-width", "100%")
-    .style("height", "auto")
-    .attr("text-anchor", "middle")
-    .attr("fill", '#616161')
-    .text( d => d[0].value + "%")
-    .attr("transform", `scale(${ (donutDims.radius - donutDims.hole)/15 })`);
-
-}
-
 const margin = {top: 20, right: 30, bottom: 30, left: 40}
 const width = 900 - margin.left - margin.right, height = 400 - margin.top - margin.bottom;
 // append the svg object 
@@ -177,7 +129,7 @@ const xScale = d3.scaleTime().range([0, width])
 const yScaleLight = d3.scaleLinear().range([height, 0])
 const yScaleWater = d3.scaleLinear().range([height, 0])
 
-const xAxis = svg.append("g")
+const xAxisGroup = svg.append("g")
     .attr("class", "axis")
     .attr("transform", `translate(50,${height + margin.bottom})`)
         
@@ -203,32 +155,31 @@ const pathWater = graph
     .attr('stroke', '#0288d1')
     .attr('stroke-width', 1)
 
+const lineLight = d3.line()
+    .defined(d => !isNaN(d.light))
+    .x(d => xScale(d.timestamp))
+    .y(d => yScaleLight(d.light_perc))
+    .curve(d3.curveMonotoneX) 
+
+const lineWater = d3.line()
+    .defined(d => !isNaN(d.water))
+    .x(d => xScale(d.timestamp))
+    .y(d => yScaleWater(d.water_perc))
+    .curve(d3.curveMonotoneX)     
+
 /** 
 * Some simple application logic
 */
-function buildLineGraph(data) {
-    console.log('building graph');
-    //prescale test
 
-    console.log(data);
-
-    const lineLight = d3.line()
-        .defined(d => !isNaN(d.light))
-        .x(d => xScale(d.timestamp))
-        .y(d => yScaleLight(d.light_perc))
-        .curve(d3.curveMonotoneX) // apply smoothing to the line
-
-    const lineWater = d3.line()
-        .defined(d => !isNaN(d.water))
-        .x(d => xScale(d.timestamp))
-        .y(d => yScaleWater(d.water_perc))
-        .curve(d3.curveMonotoneX) // apply smoothing to the line
+const updateLines = data => {
+    console.log('Updating line data');
+    console.log(data)
 
     xScale.domain(d3.extent(data, d => d.timestamp))
     yScaleLight.domain([0, 100])
     yScaleWater.domain([0, 100])
 
-    xAxis
+    xAxisGroup
         .call(d3.axisBottom(xScale)
         .tickFormat(d3.timeFormat("%a %H:%M"))
         .ticks(width / 80).tickSizeOuter(0))
@@ -249,5 +200,60 @@ function buildLineGraph(data) {
 
     pathWater
         .datum(data)
-        .attr('d', lineWater)            
+        .attr('d', lineWater)   
+}
+
+const updateDonuts = data => {
+
+}
+
+function drawDonuts(data) {
+    const donutDims = {width: 180, height: 180, radius: 90, hole: 40}
+        console.log(data)
+    const t = [{type: 'water', value: 80},{type: 'light', value: 20}]
+
+    const colors = ['#64b5f6', '#eeeeee', '#616161', '#ff9b83']
+
+    const colorScale = d3.scaleOrdinal( t.map(d => d.type), colors )
+
+    const pie = d3.pie()
+        .padAngle(0.005)
+        .sort(null)
+        .value(d => d.value)
+    const pieArcs = pie(t);
+
+    const arc = d3.arc()
+        .innerRadius(donutDims.radius - donutDims.hole)
+        .outerRadius(donutDims.radius);
+
+    const svg = d3.select('#donut-water')
+        .append('svg')
+        .attr('width', donutDims.width)
+        .attr('height', donutDims.height)
+
+    const donutgroup = svg.append('g')
+        .attr('class', 'donut-container')
+        .attr('transform', `translate(${ donutDims.width / 2 },${ donutDims.height / 2 })`)
+        
+    donutgroup.selectAll('path')
+        .data(pieArcs)
+        .join('path')
+            .style('stroke', 'white')
+            .style('stroke-width', 2)
+            .style('fill', d => colorScale( d.data.type ))
+            .attr('d', arc)
+
+  	donutgroup.selectAll("text")
+  	  .data([t])
+  	  .join("text")
+  	  .attr("text-anchor", "middle")
+  	  .attr("dy", ".3em")
+  	  .style("font", "10px sans-serif")
+  	  .style("max-width", "100%")
+  	  .style("height", "auto")
+  	  .attr("text-anchor", "middle")
+  	  .attr("fill", '#616161')
+  	  .text( d => d[0].value + "%")
+  	  .attr("transform", `scale(${ (donutDims.radius - donutDims.hole)/15 })`);
+
 }
