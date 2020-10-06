@@ -80,6 +80,8 @@ void setup() {
   pinMode(LED_RED, OUTPUT);
   pinMode(LED_GREEN, OUTPUT);
   pinMode(LED_BLUE, OUTPUT);
+  pinMode(13, OUTPUT);
+  digitalWrite(13, HIGH);
 
   setLEDColor(YELLOW);
 
