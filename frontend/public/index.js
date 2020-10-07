@@ -19,34 +19,47 @@
 const recentWaterSection = document.getElementById('recent-water-list')
 const signInButton = document.getElementById('sign-in-button')
 const loadDataButton = document.getElementById('load-data-button')
+const plantList = document.getElementById("plant-list");
 const listeningFirebaseRefs = []
-const lightRange = [1500,4000]
+const lightRange = [1000,4000]
 const waterRange = [500,3000]
-const uuid = 'uuid2462abf3ae5c'
+let uuid = 'uuid2462abf3ae5c';
+
 
 function startDatabaseQueries() {
     const plantsRef = firebase.database().ref("plants");
     
     plantsRef.once("value", function(snap) {
         const plantList = document.getElementById("plant-list");
+        const [firstPlant] = Object.keys(snap.val());
+        uuid = firstPlant;
+        console.log(`First plant: ${firstPlant}`);
 	    for(const plant of Object.keys(snap.val())) {
+            const plantName = plant;
             const navLink = document.createElement("a");
             navLink.className = "mdl-navigation__link";
             const icon = document.createElement("i");
             icon.className = "plant-icon mdl-color-text--blue-grey-400 material-icons";
+            
             icon.innerHTML = "local_florist";
             const name = document.createElement("span");
-            name.textContent = plant;
+            name.textContent = plantName;
+            const plantConfigIcon = document.createElement("i");
+            plantConfigIcon.className = "plant-icon mdl-color-text--blue-grey-400 material-icons";
+            plantConfigIcon.innerHTML = "settings_applications";
+            plantConfigIcon.setAttribute('uuid', uuid);
             navLink.appendChild(icon);
             navLink.appendChild(name);
+            navLink.appendChild(plantConfigIcon);
             plantList.appendChild(navLink);
+            plantConfigIcon.addEventListener('click', showPlantDialog);
         }
     });
 
     const currentRef = firebase.database().ref(`plants/${uuid}/last_update`)
 
     currentRef.once("value", function(snapshot) {
-        drawDonuts(snapshot.val());
+        //drawDonuts(snapshot.val());
     });
 
     const logsRef = firebase.database().ref(`plants/${uuid}/logs`).limitToLast(500);
@@ -61,6 +74,7 @@ function startDatabaseQueries() {
         });
 
         updateLines(tmp)
+        updateDonuts(tmp[tmp.length - 1]);
     }, function (error) {
         console.log("Error: " + error.code);
     });
@@ -70,32 +84,35 @@ function startDatabaseQueries() {
 
 var currentUID;
 
+function showPlantDialog(target) {
+    console.log(target);
+    document.querySelector("dialog.plant-config").showModal();
+}
+
 /**
  * Triggers every time there is a change in the Firebase auth state (i.e. user signed-in or user signed out).
  */
 function onAuthStateChanged(user) {
-  // We ignore token refresh events.
-  if (user && currentUID === user.uid) {
-    return;
+    // We ignore token refresh events.
+    if (user && currentUID === user.uid) {
+      return;
+    }
+  
+    if (user) {
+      currentUID = user.uid;
+      document.querySelector("img.user-avatar").src = `${user.photoURL}=s48`;
+      document.querySelector("div.user-email").innerHTML = user.email;
+      document.getElementById("logged-in").classList.remove("hidden");
+      document.getElementById("logged-out").classList.add("hidden");
+    } else {
+      // Set currentUID to null.
+      currentUID = null;
+      document.querySelector("img.user-avatar").src = '';
+      document.querySelector("div.user-email").innerHTML = '';
+      document.getElementById("logged-in").classList.add("hidden");
+      document.getElementById("logged-out").classList.remove("hidden");
+    }
   }
-
-  if (user) {
-    currentUID = user.uid;
-    const avatar = document.querySelector("img.user-avatar");
-    avatar.src = `${user.photoURL}=s48`;
-    avatar.classList.remove("hidden");
-    const email = document.querySelector("span.user-email")
-    email.innerHTML = user.email;
-    email.classList.remove("hidden");
-    document.getElementById("sign-in-button").classList.add("hidden");
-  } else {
-    currentUID = null;
-    document.querySelector("img.user-avatar").classList.add("hidden");
-    document.querySelector("span.user-email").classList.add("hidden");
-    document.getElementById("sign-in-button").classList.remove("hidden");
-  }
-}
-
 window.addEventListener('load', function() {
   // Bind Sign in button.
   const provider = new firebase.auth.GoogleAuthProvider();
@@ -104,6 +121,11 @@ window.addEventListener('load', function() {
   });
   // Listen for auth state changes
   firebase.auth().onAuthStateChanged(onAuthStateChanged);
+  
+  plantList.addEventListener('click', function() {
+      //..
+  });
+
 }, false);
 
 startDatabaseQueries();       
@@ -203,57 +225,78 @@ const updateLines = data => {
         .attr('d', lineWater)   
 }
 
+
+const donutDims = {width: 180, height: 180, radius: 90, hole: 40}
+const donutColors = ['#64b5f6', '#eee', '#ff9800']
+
+const arc = d3.arc()
+    .innerRadius(donutDims.radius - donutDims.hole)
+    .outerRadius(donutDims.radius);
+
+let donutgroup = []
+document.querySelectorAll('.donut').forEach((element) => {
+    donutgroup.push(d3.select(element)
+        .append('svg')
+        .attr('width', donutDims.width)
+        .attr('height', donutDims.height)
+        .append('g')
+        .attr('class', 'donut-container')
+        .attr('transform', `translate(${ donutDims.width / 2 },${ donutDims.height / 2 })`))   
+});
+
 const updateDonuts = data => {
-
-}
-
-function drawDonuts(data) {
-    const donutDims = {width: 180, height: 180, radius: 90, hole: 40}
-        console.log(data)
-    const t = [{type: 'water', value: 80},{type: 'light', value: 20}]
-
-    const colors = ['#64b5f6', '#eeeeee', '#616161', '#ff9b83']
-
-    const colorScale = d3.scaleOrdinal( t.map(d => d.type), colors )
+    const waterData = [{type: 'water', perc: data.water_perc}, {type: 'rest', perc: 100 - data.water_perc}]
+    const lightData = [{type: 'light', perc: data.light_perc}, {type: 'rest', perc: 100 - data.light_perc}]
+    const colorScale = d3.scaleOrdinal( waterData.map(d => d.type), donutColors )
 
     const pie = d3.pie()
         .padAngle(0.005)
         .sort(null)
-        .value(d => d.value)
-    const pieArcs = pie(t);
+        .value(d => d.perc)
+    const pieArcsWater = pie(waterData);
+    const pieArcsLight = pie(lightData);
 
-    const arc = d3.arc()
-        .innerRadius(donutDims.radius - donutDims.hole)
-        .outerRadius(donutDims.radius);
-
-    const svg = d3.select('#donut-water')
-        .append('svg')
-        .attr('width', donutDims.width)
-        .attr('height', donutDims.height)
-
-    const donutgroup = svg.append('g')
-        .attr('class', 'donut-container')
-        .attr('transform', `translate(${ donutDims.width / 2 },${ donutDims.height / 2 })`)
-        
-    donutgroup.selectAll('path')
-        .data(pieArcs)
+    donutgroup[0].selectAll('path')
+        .data(pieArcsWater)
         .join('path')
             .style('stroke', 'white')
             .style('stroke-width', 2)
             .style('fill', d => colorScale( d.data.type ))
             .attr('d', arc)
 
-  	donutgroup.selectAll("text")
-  	  .data([t])
+  	donutgroup[0].selectAll("text")
+  	  .data([waterData])
   	  .join("text")
   	  .attr("text-anchor", "middle")
   	  .attr("dy", ".3em")
-  	  .style("font", "10px sans-serif")
+  	  .style("font", "8px sans-serif")
   	  .style("max-width", "100%")
   	  .style("height", "auto")
   	  .attr("text-anchor", "middle")
   	  .attr("fill", '#616161')
-  	  .text( d => d[0].value + "%")
-  	  .attr("transform", `scale(${ (donutDims.radius - donutDims.hole)/15 })`);
+  	  .text( d => Math.floor(d[0].perc) + "%")
+        .attr("transform", `scale(${ (donutDims.radius - donutDims.hole)/15 })`);    
+        
 
+    donutgroup[1].selectAll('path')
+        .data(pieArcsLight)
+        .join('path')
+            .style('stroke', 'white')
+            .style('stroke-width', 2)
+            .style('fill', d => colorScale( d.data.type ))
+            .attr('d', arc)
+
+  	donutgroup[1].selectAll("text")
+  	  .data([lightData])
+  	  .join("text")
+  	  .attr("text-anchor", "middle")
+  	  .attr("dy", ".3em")
+  	  .style("font", "8px sans-serif")
+  	  .style("max-width", "100%")
+  	  .style("height", "auto")
+  	  .attr("text-anchor", "middle")
+  	  .attr("fill", '#616161')
+  	  .text( d => Math.floor(d[0].perc) + "%")
+  	  .attr("transform", `scale(${ (donutDims.radius - donutDims.hole)/15 })`);           
 }
+

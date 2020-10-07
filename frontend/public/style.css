@@ -18,6 +18,16 @@ html, body {
     margin: 0px 5px;
 }
 
+.user {
+    justify-content: flex-end;
+    padding: 16px;
+    height: 151px;
+}
+
+.user-email {
+    margin: 10px 0px;
+}
+
 .user-avatar {
     width: 48px;
     height: 48px;
@@ -32,4 +42,8 @@ html, body {
 
 .hidden {
     display: none;
+}
+.mdl-layout__drawer .mdl-navigation .mdl-navigation__link:hover {
+    background-color: #00BCD4;
+    color: #37474F;
 }
