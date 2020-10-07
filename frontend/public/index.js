@@ -23,23 +23,36 @@ const plantList = document.getElementById("plant-list");
 const listeningFirebaseRefs = []
 const lightRange = [1000,4000]
 const waterRange = [500,3000]
-const uuid = 'uuid2462abf3ae5c'
+let uuid = 'uuid2462abf3ae5c';
+
 
 function startDatabaseQueries() {
     const plantsRef = firebase.database().ref("plants");
     
-    plantsRef.once("value", function(snap) {        
+    plantsRef.once("value", function(snap) {
+        const plantList = document.getElementById("plant-list");
+        const [firstPlant] = Object.keys(snap.val());
+        uuid = firstPlant;
+        console.log(`First plant: ${firstPlant}`);
 	    for(const plant of Object.keys(snap.val())) {
+            const plantName = plant;
             const navLink = document.createElement("a");
             navLink.className = "mdl-navigation__link";
             const icon = document.createElement("i");
             icon.className = "plant-icon mdl-color-text--blue-grey-400 material-icons";
+            
             icon.innerHTML = "local_florist";
             const name = document.createElement("span");
-            name.textContent = plant;
+            name.textContent = plantName;
+            const plantConfigIcon = document.createElement("i");
+            plantConfigIcon.className = "plant-icon mdl-color-text--blue-grey-400 material-icons";
+            plantConfigIcon.innerHTML = "settings_applications";
+            plantConfigIcon.setAttribute('uuid', uuid);
             navLink.appendChild(icon);
             navLink.appendChild(name);
+            navLink.appendChild(plantConfigIcon);
             plantList.appendChild(navLink);
+            plantConfigIcon.addEventListener('click', showPlantDialog);
         }
     });
 
@@ -70,6 +83,11 @@ function startDatabaseQueries() {
 }
 
 var currentUID;
+
+function showPlantDialog(target) {
+    console.log(target);
+    document.querySelector("dialog.plant-config").showModal();
+}
 
 /**
  * Triggers every time there is a change in the Firebase auth state (i.e. user signed-in or user signed out).
