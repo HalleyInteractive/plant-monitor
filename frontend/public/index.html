@@ -26,12 +26,15 @@
         </div>
       </header>
       <div class="mdl-layout__drawer mdl-color--blue-grey-900 mdl-color-text--blue-grey-50">
-        <header>
-          <img src="images/user.jpg" width="48" height="48" class="user-avatar">
-          <div class="avatar-dropdown">
-            <span class="user-email">hello@example.com</span>
-          </div>
-          <a id="sign-in-button" class="waves-effect waves-light btn-small">Sign in with Google</a>
+        <header class="user">
+          <span id="logged-in">
+            <img src="images/user.jpg" width="48" height="48" class="user-avatar">
+            <div class="user-email"></div>
+            <a id="log-out-button" class="waves-effect waves-light btn-small">Log out</a>
+          </span>
+          <span id="logged-out">
+            <a id="sign-in-button" class="waves-effect waves-light btn-small">Sign in with Google</a>
+          </span>
         </header>
         <nav id="plant-list" class="mdl-navigation mdl-color--blue-grey-800">
         </nav>

@@ -74,28 +74,26 @@ var currentUID;
  * Triggers every time there is a change in the Firebase auth state (i.e. user signed-in or user signed out).
  */
 function onAuthStateChanged(user) {
-  // We ignore token refresh events.
-  if (user && currentUID === user.uid) {
-    return;
+    // We ignore token refresh events.
+    if (user && currentUID === user.uid) {
+      return;
+    }
+  
+    if (user) {
+      currentUID = user.uid;
+      document.querySelector("img.user-avatar").src = `${user.photoURL}=s48`;
+      document.querySelector("div.user-email").innerHTML = user.email;
+      document.getElementById("logged-in").classList.remove("hidden");
+      document.getElementById("logged-out").classList.add("hidden");
+    } else {
+      // Set currentUID to null.
+      currentUID = null;
+      document.querySelector("img.user-avatar").src = '';
+      document.querySelector("div.user-email").innerHTML = '';
+      document.getElementById("logged-in").classList.add("hidden");
+      document.getElementById("logged-out").classList.remove("hidden");
+    }
   }
-
-  if (user) {
-    currentUID = user.uid;
-    const avatar = document.querySelector("img.user-avatar");
-    avatar.src = `${user.photoURL}=s48`;
-    avatar.classList.remove("hidden");
-    const email = document.querySelector("span.user-email")
-    email.innerHTML = user.email;
-    email.classList.remove("hidden");
-    document.getElementById("sign-in-button").classList.add("hidden");
-  } else {
-    currentUID = null;
-    document.querySelector("img.user-avatar").classList.add("hidden");
-    document.querySelector("span.user-email").classList.add("hidden");
-    document.getElementById("sign-in-button").classList.remove("hidden");
-  }
-}
-
 window.addEventListener('load', function() {
   // Bind Sign in button.
   const provider = new firebase.auth.GoogleAuthProvider();
