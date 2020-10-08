@@ -57,6 +57,8 @@ function savePlantConfig() {
     const plantName = document.getElementById("plant-name").value;
     const plantConfigRef = firebase.database().ref(`plants/${plantUuid}/config/name`);
     plantConfigRef.set(plantName);
+    document.getElementById(`plant-button-${plantUuid}`).textContent = plantName;
+    document.getElementById(`plant-button-${plantUuid}`).setAttribute('name', plantName);
     document.getElementById('plant-config-dialog').close();
 }
 
@@ -115,6 +117,7 @@ function getPlantMenuItem(uuid, name) {
 
     const nameElement = document.createElement("span");
     nameElement.textContent = name;
+    nameElement.id = `plant-button-${uuid}`;
     nameElement.setAttribute('uuid', uuid);
     nameElement.setAttribute('name', name);
 
