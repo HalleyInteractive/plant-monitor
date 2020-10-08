@@ -140,6 +140,7 @@ function getPlantMenuItem(uuid, name) {
  */
 function onAuthStateChanged(user) {
     if (user) {
+        startDatabaseQueries();
         document.querySelector("img.user-avatar").src = `${user.photoURL}=s48`;
         document.querySelector("div.user-email").innerHTML = user.email;
         document.getElementById("logged-in").classList.remove("hidden");
@@ -165,9 +166,10 @@ window.addEventListener('load', function() {
   plantConfigCancelBtn.addEventListener('click', () => {
       document.getElementById('plant-config-dialog').close();
   });
+  document.getElementById('log-out-button').addEventListener('click', () => {
+    firebase.auth().signOut();
+  });
 }, false);
-
-startDatabaseQueries();
 
 /**
  * Visualisation 
