@@ -61,9 +61,15 @@ function savePlantConfig() {
     document.getElementById('plant-config-dialog').close();
 }
 
+let logsRef;
 function setAndTrackPlant(uuid) {
     const currentRef = firebase.database().ref(`plants/${uuid}/last_update`);
-    const logsRef = firebase.database().ref(`plants/${uuid}/logs`).limitToLast(500);
+    try {
+        logsRef.off('value');
+    } catch (error) {
+        console.log(error);
+    }
+    logsRef = firebase.database().ref(`plants/${uuid}/logs`).limitToLast(500);
     logsRef.on("value", updateCharts, (error) => {
         console.log("Error: " + error.code);
     });
