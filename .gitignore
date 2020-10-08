@@ -33,4 +33,5 @@
 
 /schematics/fp-info-cache
 /schematics/*-bak
-frontend/firebase-debug.log
+*.log
+*.cache
