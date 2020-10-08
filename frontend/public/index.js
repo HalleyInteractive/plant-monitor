@@ -40,16 +40,29 @@ function changePlant(event) {
 }
 
 function configButton(event) {
+    event.stopPropagation();
     console.log(event);
     const uuid = event.target.getAttribute('uuid');
+    const plantName = event.target.getAttribute('name');
     console.log(`Plant to config: ${uuid}`);
-    event.stopPropagation();
+    document.getElementById("plant-uuid").value = uuid;
+    document.getElementById("plant-name").value = plantName;
+    
+    document.getElementById('plant-config-dialog').showModal();
 }
 
+function savePlantConfig() {
+    console.log('Save Plant Config');
+    const plantUuid = document.getElementById("plant-uuid").value;
+    const plantName = document.getElementById("plant-name").value;
+    const plantConfigRef = firebase.database().ref(`plants/${plantUuid}/config/name`);
+    plantConfigRef.set(plantName);
+    document.getElementById('plant-config-dialog').close();
+}
 
 function setAndTrackPlant(uuid) {
     console.log(`Current plant: ${uuid}`);
-    const currentRef = firebase.database().ref(`plants/${uuid}/last_update`)
+    const currentRef = firebase.database().ref(`plants/${uuid}/last_update`);
     const logsRef = firebase.database().ref(`plants/${uuid}/logs`).limitToLast(500);
     logsRef.on("value", function(snapshot) {
         const log = Object.values(snapshot.val())
@@ -70,11 +83,16 @@ function getPlants() {
     return new Promise((resolve) => {
         const plantsRef = firebase.database().ref("plants");
         plantsRef.once("value", function(snap) {
+            const plants = snap.val();
             const plantList = document.getElementById("plant-list");
             const [firstPlant] = Object.keys(snap.val());
-            for(const plant of Object.keys(snap.val())) {
-                const plantName = plant;
-                const plantMenuButton = getPlantMenuItem(plant, plantName);
+            for(const plantUuid of Object.keys(snap.val())) {
+                const plant = plants[plantUuid];
+                let plantName = plantUuid;
+                if(plant.config && plant.config.name) {
+                    plantName = plant.config.name;
+                }
+                const plantMenuButton = getPlantMenuItem(plantUuid, plantName);
                 plantList.appendChild(plantMenuButton);
             }
             resolve(firstPlant);
@@ -86,21 +104,25 @@ function getPlantMenuItem(uuid, name) {
     const plantButton = document.createElement("a");
     plantButton.className = "mdl-navigation__link";
     plantButton.setAttribute('uuid', uuid);
+    plantButton.setAttribute('name', name);
     plantButton.addEventListener('click', changePlant);
 
     const plantIcon = document.createElement("i");
     plantIcon.className = "plant-icon mdl-color-text--blue-grey-400 material-icons";
     plantIcon.innerHTML = "local_florist";
     plantIcon.setAttribute('uuid', uuid);
+    plantIcon.setAttribute('name', name);
 
     const nameElement = document.createElement("span");
     nameElement.textContent = name;
     nameElement.setAttribute('uuid', uuid);
+    nameElement.setAttribute('name', name);
 
     const plantConfigIcon = document.createElement("i");
     plantConfigIcon.className = "plant-settings mdl-color-text--blue-grey-400 material-icons";
     plantConfigIcon.innerHTML = "settings";
     plantConfigIcon.setAttribute('uuid', uuid);
+    plantConfigIcon.setAttribute('name', name);
     plantConfigIcon.addEventListener('click', configButton);
 
     plantButton.appendChild(plantIcon);
@@ -108,11 +130,6 @@ function getPlantMenuItem(uuid, name) {
     plantButton.appendChild(plantConfigIcon);
 
     return plantButton;
-}
-
-function showPlantDialog(target) {
-    console.log(target);
-    document.querySelector("dialog.plant-config").showModal();
 }
 
 /**
@@ -133,22 +150,21 @@ function onAuthStateChanged(user) {
 }
 
 window.addEventListener('load', function() {
-  // Bind Sign in button.
   const provider = new firebase.auth.GoogleAuthProvider();
   signInButton.addEventListener('click', () => {
     firebase.auth().signInWithPopup(provider);
   });
-  // Listen for auth state changes
   firebase.auth().onAuthStateChanged(onAuthStateChanged);
-  
-  plantList.addEventListener('click', function() {
-      //..
-  });
+  const plantConfigSaveBtn = document.getElementById('plant-config-save');
+  const plantConfigCancelBtn = document.getElementById('plant-config-cancel');
 
+  plantConfigSaveBtn.addEventListener('click', savePlantConfig);
+  plantConfigCancelBtn.addEventListener('click', () => {
+      document.getElementById('plant-config-dialog').close();
+  });
 }, false);
 
-startDatabaseQueries();       
-
+startDatabaseQueries();
 
 /**
  * Visualisation 

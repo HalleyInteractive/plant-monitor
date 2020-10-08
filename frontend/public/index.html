@@ -58,19 +58,20 @@
           </div>
         </div>
       </main>
-      <dialog class="mdl-dialog plant-config">
+      <dialog id="plant-config-dialog" class="mdl-dialog plant-config">
         <h4 class="mdl-dialog__title">Plant Name</h4>
         <div class="mdl-dialog__content">
           <form action="#">
+            <input type="hidden" id="plant-uuid">
             <div class="mdl-textfield mdl-js-textfield">
-              <input class="mdl-textfield__input" type="text" id="sample1">
-              <label class="mdl-textfield__label" for="sample1">Text...</label>
+              <input class="mdl-textfield__input is-dirty is-focused" type="text" id="plant-name">
+              <label class="mdl-textfield__label is-dirty is-focused" for="plant-name">Text...</label>
             </div>
           </form>
         </div>
         <div class="mdl-dialog__actions">
-          <button type="button" class="mdl-button save">Save</button>
-          <button type="button" class="mdl-button close">Cancel</button>
+          <button id="plant-config-save" type="button" class="mdl-button save">Save</button>
+          <button id="plant-config-cancel" type="button" class="mdl-button close">Cancel</button>
         </div>
       </dialog>
     </div>
