@@ -21,10 +21,10 @@ const signInButton = document.getElementById('sign-in-button')
 const loadDataButton = document.getElementById('load-data-button')
 const plantList = document.getElementById("plant-list");
 const listeningFirebaseRefs = []
-const lightRange = [1000,4000]
-const waterRange = [500,3000]
 let uuid = 'uuid2462abf3ae5c';
 
+const lightRange = [200,4000];
+const waterRange = [4095, 500];
 
 function startDatabaseQueries() {
     const plantsRef = firebase.database().ref("plants");
