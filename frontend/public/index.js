@@ -186,8 +186,7 @@ const width = 900 - margin.left - margin.right, height = 400 - margin.top - marg
 const svg = d3
     .select("#graph")
     .append("svg")
-    .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom);
+    .attr('viewBox', `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
 
 const graph = svg
     .append("g")
