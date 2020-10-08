@@ -47,7 +47,6 @@ function configButton(event) {
     console.log(`Plant to config: ${uuid}`);
     document.getElementById("plant-uuid").value = uuid;
     document.getElementById("plant-name").value = plantName;
-    
     document.getElementById('plant-config-dialog').showModal();
 }
 
@@ -63,22 +62,23 @@ function savePlantConfig() {
 }
 
 function setAndTrackPlant(uuid) {
-    console.log(`Current plant: ${uuid}`);
     const currentRef = firebase.database().ref(`plants/${uuid}/last_update`);
     const logsRef = firebase.database().ref(`plants/${uuid}/logs`).limitToLast(500);
-    logsRef.on("value", function(snapshot) {
-        const log = Object.values(snapshot.val())
-        log.forEach(function(d){ 
-            d.timestamp = new Date(d.timestamp * 1000) 
-            d.light_perc = ((d.light - lightRange[0]) * 100) / (lightRange[1] - lightRange[0])
-            d.water_perc = ((d.water - waterRange[0]) * 100) / (waterRange[1] - waterRange[0])
-        });
-        updateLines(log)
-        updateDonuts(log[log.length - 1]);
-    }, function (error) {
+    logsRef.on("value", updateCharts, (error) => {
         console.log("Error: " + error.code);
     });
     listeningFirebaseRefs = [logsRef, currentRef];
+}
+
+function updateCharts(snapshot) {
+    const log = Object.values(snapshot.val())
+    log.forEach(function(d){ 
+        d.timestamp = new Date(d.timestamp * 1000) 
+        d.light_perc = ((d.light - lightRange[0]) * 100) / (lightRange[1] - lightRange[0])
+        d.water_perc = ((d.water - waterRange[0]) * 100) / (waterRange[1] - waterRange[0])
+    });
+    updateLines(log)
+    updateDonuts(log[log.length - 1]);
 }
 
 function getPlants() {
