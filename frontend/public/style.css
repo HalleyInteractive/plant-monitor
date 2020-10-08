@@ -43,7 +43,28 @@ html, body {
 .hidden {
     display: none;
 }
+
+.mdl-layout__drawer .mdl-navigation .mdl-navigation__link {
+    padding: 15px 5px;
+}
+
 .mdl-layout__drawer .mdl-navigation .mdl-navigation__link:hover {
     background-color: #00BCD4;
     color: #37474F;
+    cursor: pointer;
+}
+
+.plant-icon {
+	vertical-align: middle;
+    margin:0px 5px;
+    color: #98fc03 !important;
+}
+
+.plant-settings {
+	vertical-align: middle;
+	margin:0px 5px;
+    float: right;
+}
+.plant-settings:hover {
+	color: #FFF !important;
 }

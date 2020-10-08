@@ -20,69 +20,95 @@ const recentWaterSection = document.getElementById('recent-water-list')
 const signInButton = document.getElementById('sign-in-button')
 const loadDataButton = document.getElementById('load-data-button')
 const plantList = document.getElementById("plant-list");
-const listeningFirebaseRefs = []
-let uuid = 'uuid2462abf3ae5c';
-
 const lightRange = [200,4000];
 const waterRange = [4095, 500];
+let listeningFirebaseRefs = [];
 
 function startDatabaseQueries() {
-    const plantsRef = firebase.database().ref("plants");
-    
-    plantsRef.once("value", function(snap) {
-        const plantList = document.getElementById("plant-list");
-        const [firstPlant] = Object.keys(snap.val());
-        uuid = firstPlant;
-        console.log(`First plant: ${firstPlant}`);
-	    for(const plant of Object.keys(snap.val())) {
-            const plantName = plant;
-            const navLink = document.createElement("a");
-            navLink.className = "mdl-navigation__link";
-            const icon = document.createElement("i");
-            icon.className = "plant-icon mdl-color-text--blue-grey-400 material-icons";
-            
-            icon.innerHTML = "local_florist";
-            const name = document.createElement("span");
-            name.textContent = plantName;
-            const plantConfigIcon = document.createElement("i");
-            plantConfigIcon.className = "plant-icon mdl-color-text--blue-grey-400 material-icons";
-            plantConfigIcon.innerHTML = "settings_applications";
-            plantConfigIcon.setAttribute('uuid', uuid);
-            navLink.appendChild(icon);
-            navLink.appendChild(name);
-            navLink.appendChild(plantConfigIcon);
-            plantList.appendChild(navLink);
-            plantConfigIcon.addEventListener('click', showPlantDialog);
-        }
+    getPlants().then((firstPlant) => {
+       setAndTrackPlant(firstPlant);
+    }).catch((error) => {
+        console.log('Error getting plants.');
     });
+}
 
+function changePlant(event) {
+    console.log(event);
+    const uuid = event.target.getAttribute('uuid');
+    console.log(`Change to plant: ${uuid}`);
+    setAndTrackPlant(uuid);
+}
+
+function configButton(event) {
+    console.log(event);
+    const uuid = event.target.getAttribute('uuid');
+    console.log(`Plant to config: ${uuid}`);
+    event.stopPropagation();
+}
+
+
+function setAndTrackPlant(uuid) {
+    console.log(`Current plant: ${uuid}`);
     const currentRef = firebase.database().ref(`plants/${uuid}/last_update`)
-
-    currentRef.once("value", function(snapshot) {
-        //drawDonuts(snapshot.val());
-    });
-
     const logsRef = firebase.database().ref(`plants/${uuid}/logs`).limitToLast(500);
-    
     logsRef.on("value", function(snapshot) {
-        var tmp = Object.values(snapshot.val())
-
-        tmp.forEach(function(d){ 
+        const log = Object.values(snapshot.val())
+        log.forEach(function(d){ 
             d.timestamp = new Date(d.timestamp * 1000) 
             d.light_perc = ((d.light - lightRange[0]) * 100) / (lightRange[1] - lightRange[0])
             d.water_perc = ((d.water - waterRange[0]) * 100) / (waterRange[1] - waterRange[0])
         });
-
-        updateLines(tmp)
-        updateDonuts(tmp[tmp.length - 1]);
+        updateLines(log)
+        updateDonuts(log[log.length - 1]);
     }, function (error) {
         console.log("Error: " + error.code);
     });
-
-    listeningFirebaseRefs.push(logsRef, plantsRef, currentRef);
+    listeningFirebaseRefs = [logsRef, currentRef];
 }
 
-var currentUID;
+function getPlants() {
+    return new Promise((resolve) => {
+        const plantsRef = firebase.database().ref("plants");
+        plantsRef.once("value", function(snap) {
+            const plantList = document.getElementById("plant-list");
+            const [firstPlant] = Object.keys(snap.val());
+            for(const plant of Object.keys(snap.val())) {
+                const plantName = plant;
+                const plantMenuButton = getPlantMenuItem(plant, plantName);
+                plantList.appendChild(plantMenuButton);
+            }
+            resolve(firstPlant);
+        });
+    });
+}
+
+function getPlantMenuItem(uuid, name) {
+    const plantButton = document.createElement("a");
+    plantButton.className = "mdl-navigation__link";
+    plantButton.setAttribute('uuid', uuid);
+    plantButton.addEventListener('click', changePlant);
+
+    const plantIcon = document.createElement("i");
+    plantIcon.className = "plant-icon mdl-color-text--blue-grey-400 material-icons";
+    plantIcon.innerHTML = "local_florist";
+    plantIcon.setAttribute('uuid', uuid);
+
+    const nameElement = document.createElement("span");
+    nameElement.textContent = name;
+    nameElement.setAttribute('uuid', uuid);
+
+    const plantConfigIcon = document.createElement("i");
+    plantConfigIcon.className = "plant-settings mdl-color-text--blue-grey-400 material-icons";
+    plantConfigIcon.innerHTML = "settings";
+    plantConfigIcon.setAttribute('uuid', uuid);
+    plantConfigIcon.addEventListener('click', configButton);
+
+    plantButton.appendChild(plantIcon);
+    plantButton.appendChild(nameElement);
+    plantButton.appendChild(plantConfigIcon);
+
+    return plantButton;
+}
 
 function showPlantDialog(target) {
     console.log(target);
@@ -93,26 +119,19 @@ function showPlantDialog(target) {
  * Triggers every time there is a change in the Firebase auth state (i.e. user signed-in or user signed out).
  */
 function onAuthStateChanged(user) {
-    // We ignore token refresh events.
-    if (user && currentUID === user.uid) {
-      return;
-    }
-  
     if (user) {
-      currentUID = user.uid;
-      document.querySelector("img.user-avatar").src = `${user.photoURL}=s48`;
-      document.querySelector("div.user-email").innerHTML = user.email;
-      document.getElementById("logged-in").classList.remove("hidden");
-      document.getElementById("logged-out").classList.add("hidden");
+        document.querySelector("img.user-avatar").src = `${user.photoURL}=s48`;
+        document.querySelector("div.user-email").innerHTML = user.email;
+        document.getElementById("logged-in").classList.remove("hidden");
+        document.getElementById("logged-out").classList.add("hidden");
     } else {
-      // Set currentUID to null.
-      currentUID = null;
-      document.querySelector("img.user-avatar").src = '';
-      document.querySelector("div.user-email").innerHTML = '';
-      document.getElementById("logged-in").classList.add("hidden");
-      document.getElementById("logged-out").classList.remove("hidden");
+        document.querySelector("img.user-avatar").src = '';
+        document.querySelector("div.user-email").innerHTML = '';
+        document.getElementById("logged-in").classList.add("hidden");
+        document.getElementById("logged-out").classList.remove("hidden");
     }
-  }
+}
+
 window.addEventListener('load', function() {
   // Bind Sign in button.
   const provider = new firebase.auth.GoogleAuthProvider();
@@ -195,7 +214,6 @@ const lineWater = d3.line()
 
 const updateLines = data => {
     console.log('Updating line data');
-    console.log(data)
 
     xScale.domain(d3.extent(data, d => d.timestamp))
     yScaleLight.domain([0, 100])
