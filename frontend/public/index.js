@@ -20,8 +20,8 @@ const recentWaterSection = document.getElementById('recent-water-list')
 const signInButton = document.getElementById('sign-in-button')
 const loadDataButton = document.getElementById('load-data-button')
 const plantList = document.getElementById("plant-list");
-const lightRange = [0,4095];
-const waterRange = [4095, 0];
+let lightRange = [0,4095];
+let waterRange = [4095, 0];
 let listeningFirebaseRefs = [];
 
 function startDatabaseQueries() {
@@ -42,23 +42,56 @@ function changePlant(event) {
 function configButton(event) {
     event.stopPropagation();
     console.log(event);
-    const uuid = event.target.getAttribute('uuid');
-    const plantName = event.target.getAttribute('name');
-    console.log(`Plant to config: ${uuid}`);
-    document.getElementById("plant-uuid").value = uuid;
-    document.getElementById("plant-name").value = plantName;
-    document.getElementById("plant-name").parentElement.classList.add('is-dirty');
+    const config = {
+        uuid: event.target.getAttribute('uuid'),
+        name: event.target.getAttribute('name'),
+        waterMin: event.target.getAttribute('waterMin'),
+        waterMax: event.target.getAttribute('waterMax'),
+        lightMin: event.target.getAttribute('lightMin'),
+        lightMax: event.target.getAttribute('lightMax')
+    };
+
+    console.log(`Plant to config: ${config.uuid}`);
+    console.log(config);
+
+    document.getElementById("config-plant-uuid").value = config.uuid;
+    document.getElementById("config-plant-name").value = config.name;
+    document.getElementById("config-water-min").value = config.waterMin;
+    document.getElementById("config-water-max").value = config.waterMax;
+    document.getElementById("config-light-min").value = config.lightMin;
+    document.getElementById("config-light-max").value = config.lightMax;
+
+    document.getElementById("config-plant-name").parentElement.classList.add('is-dirty');
+    document.getElementById("config-water-min").parentElement.classList.add('is-dirty');
+    document.getElementById("config-water-max").parentElement.classList.add('is-dirty');
+    document.getElementById("config-light-min").parentElement.classList.add('is-dirty');
+    document.getElementById("config-light-max").parentElement.classList.add('is-dirty');
+
     document.getElementById('plant-config-dialog').showModal();
 }
 
 function savePlantConfig() {
     console.log('Save Plant Config');
-    const plantUuid = document.getElementById("plant-uuid").value;
-    const plantName = document.getElementById("plant-name").value;
-    const plantConfigRef = firebase.database().ref(`plants/${plantUuid}/config/name`);
-    plantConfigRef.set(plantName);
-    document.getElementById(`plant-button-${plantUuid}`).textContent = plantName;
-    document.getElementById(`plant-button-${plantUuid}`).setAttribute('name', plantName);
+
+    const config = {
+        uuid: document.getElementById("config-plant-uuid").value,
+        name: document.getElementById("config-plant-name").value,
+        waterMin: document.getElementById("config-water-min").value,
+        waterMax: document.getElementById("config-water-max").value,
+        lightMin: document.getElementById("config-light-min").value,
+        lightMax: document.getElementById("config-light-max").value
+    };
+
+    setConfigAttributes(document.getElementById(`plant-button-${config.uuid}`), config);
+    setConfigAttributes(document.getElementById(`plant-icon-${config.uuid}`), config);
+    setConfigAttributes(document.getElementById(`plant-name-${config.uuid}`), config);
+    setConfigAttributes(document.getElementById(`plant-settings-${config.uuid}`), config);
+
+    const plantConfigRef = firebase.database().ref(`plants/${config.uuid}/config`);
+    plantConfigRef.set(config);
+    lightRange = [config.lightMin, config.lightMax];
+    waterRange = [config.waterMax, config.waterMin];
+    document.getElementById(`plant-name-${config.uuid}`).textContent = config.name;
     document.getElementById('plant-config-dialog').close();
 }
 
@@ -97,11 +130,19 @@ function getPlants() {
             const [firstPlant] = Object.keys(snap.val());
             for(const plantUuid of Object.keys(snap.val())) {
                 const plant = plants[plantUuid];
-                let plantName = plantUuid;
-                if(plant.config && plant.config.name) {
-                    plantName = plant.config.name;
+                let config = {
+                    uuid: plantUuid,
+                    name: plantUuid,
+                    waterMin: 0,
+                    waterMax: 4095,
+                    lightMin: 0,
+                    lightMax: 4095
+                };
+
+                if(plant.config) {
+                    config = plant.config;
                 }
-                const plantMenuButton = getPlantMenuItem(plantUuid, plantName);
+                const plantMenuButton = getPlantMenuItem(plantUuid, config);
                 plantList.appendChild(plantMenuButton);
             }
             resolve(firstPlant);
@@ -109,30 +150,36 @@ function getPlants() {
     });
 }
 
-function getPlantMenuItem(uuid, name) {
+function setConfigAttributes(element, config) {
+    for(const [key, val] of Object.entries(config)) {
+        element.setAttribute(key, val);
+    }
+}
+
+function getPlantMenuItem(uuid, config) {
+    console.log(config);
     const plantButton = document.createElement("a");
     plantButton.className = "mdl-navigation__link";
-    plantButton.setAttribute('uuid', uuid);
-    plantButton.setAttribute('name', name);
+    plantButton.id = `plant-button-${uuid}`;
     plantButton.addEventListener('click', changePlant);
+    setConfigAttributes(plantButton, config);
 
     const plantIcon = document.createElement("i");
     plantIcon.className = "plant-icon mdl-color-text--blue-grey-400 material-icons";
     plantIcon.innerHTML = "local_florist";
-    plantIcon.setAttribute('uuid', uuid);
-    plantIcon.setAttribute('name', name);
+    plantIcon.id = `plant-icon-${uuid}`;
+    setConfigAttributes(plantIcon, config);
 
     const nameElement = document.createElement("span");
-    nameElement.textContent = name;
-    nameElement.id = `plant-button-${uuid}`;
-    nameElement.setAttribute('uuid', uuid);
-    nameElement.setAttribute('name', name);
+    nameElement.textContent = config.name;
+    nameElement.id = `plant-name-${uuid}`;
+    setConfigAttributes(nameElement, config);
 
     const plantConfigIcon = document.createElement("i");
     plantConfigIcon.className = "plant-settings mdl-color-text--blue-grey-400 material-icons";
     plantConfigIcon.innerHTML = "settings";
-    plantConfigIcon.setAttribute('uuid', uuid);
-    plantConfigIcon.setAttribute('name', name);
+    plantConfigIcon.id = `plant-settings-${uuid}`;
+    setConfigAttributes(plantConfigIcon, config);
     plantConfigIcon.addEventListener('click', configButton);
 
     plantButton.appendChild(plantIcon);
