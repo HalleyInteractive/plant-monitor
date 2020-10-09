@@ -37,12 +37,14 @@
 #include <FirebaseESP32.h>
 #include <DateTime.h>
 #include <ESPDateTime.h>
+#include <DHT.h>
 
 #define LED_RED 12
 #define LED_GREEN 14
 #define LED_BLUE 27
 #define LDR 36
 #define CSMS 39
+#define DHT 34
 
 #define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
 #define CONFIG_PORTAL_GPIO GPIO_NUM_33
@@ -65,6 +67,8 @@ enum LedColor {
 struct SensorReading {
   int light;
   int water;
+  float humidity;
+  float temperature; 
 };
 
 /**
@@ -290,13 +294,19 @@ SensorReading readSensorData() {
   Serial.println("Reading sensor values");
   setLEDColor(RED);
  
+  DHT dht(DHT, DHT22);
+ 
   int light = analogRead(LDR);
   int water = analogRead(CSMS);
+  float humidity = dht.readHumidity();
+  float temperature = dht.readTemperature();
   
 
   SensorReading reading = {
     light,
-    water
+    water,
+    humidity,
+    temperature
   };
    
   return reading;
@@ -315,6 +325,8 @@ void sendSensorDataToFirestore(SensorReading reading, int currentTimestamp) {
   FirebaseJson sensorReading;
   sensorReading.set("light", reading.light);
   sensorReading.set("water", reading.water);
+  sensorReading.set("humidity", reading.humidity);
+  sensorReading.set("temperature", reading.temperature);
   sensorReading.set("timestamp", currentTimestamp);
   
   Firebase.updateNode(firebaseData, "plants/" + uuid + "/last_update/", sensorReading);
@@ -447,6 +459,8 @@ void loop() {
   if(DEBUG_SENSORS) {
     SensorReading reading = readSensorData();
      Serial.print("Light:  "); Serial.print(reading.light); Serial.print("  ");
-     Serial.print("Water:  "); Serial.print(reading.water); Serial.println("");
+     Serial.print("Water:  "); Serial.print(reading.water); Serial.print("  ");
+     Serial.print("Humidity:  "); Serial.print(reading.humidity); Serial.print("  ");
+     Serial.print("Temperature:  "); Serial.print(reading.temperature); Serial.println("");
   }
 }
