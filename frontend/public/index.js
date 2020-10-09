@@ -47,6 +47,7 @@ function configButton(event) {
     console.log(`Plant to config: ${uuid}`);
     document.getElementById("plant-uuid").value = uuid;
     document.getElementById("plant-name").value = plantName;
+    document.getElementById("plant-name").parentElement.classList.add('is-dirty');
     document.getElementById('plant-config-dialog').showModal();
 }
 
