@@ -20,8 +20,8 @@ const recentWaterSection = document.getElementById('recent-water-list')
 const signInButton = document.getElementById('sign-in-button')
 const loadDataButton = document.getElementById('load-data-button')
 const plantList = document.getElementById("plant-list");
-const lightRange = [200,4000];
-const waterRange = [4095, 500];
+const lightRange = [0,4095];
+const waterRange = [4095, 0];
 let listeningFirebaseRefs = [];
 
 function startDatabaseQueries() {
