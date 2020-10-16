@@ -44,7 +44,7 @@
 #define LED_BLUE 27
 #define LDR 36
 #define CSMS 39
-#define DHT 34
+#define DHT_PIN 34
 
 #define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
 #define CONFIG_PORTAL_GPIO GPIO_NUM_33
@@ -295,7 +295,7 @@ SensorReading readSensorData() {
   Serial.println("Reading sensor values");
   setLEDColor(RED);
  
-  DHT dht(DHT, DHT22);
+  DHT dht(DHT_PIN, DHT22);
  
   int light = analogRead(LDR);
   int water = analogRead(CSMS);
