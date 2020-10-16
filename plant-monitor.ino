@@ -167,32 +167,33 @@ void setup() {
   DateTime.begin();
   if(!DateTime.isTimeValid()) {
     Serial.println("Failed to get time from server.");
-  }
-  
-  Serial.print("NOW: ");
-  Serial.println(DateTime.now());
-  int currentTimestamp = DateTime.now();
-  
-  String uuid = getUUID();
-
-  Firebase.setMaxRetry(firebaseData, 3);
-  Firebase.setMaxErrorQueue(firebaseData, 30);
-  Firebase.setReadTimeout(firebaseData, 1000 * 60 * 10);
-  Firebase.enableClassicRequest(firebaseData, true);
-  
-  sendSensorDataToFirestore(reading, currentTimestamp);
-
-  if(currentTimestamp > (lastFirebaseCleanup + 86400)) {
-    setIndexOnRules();
-    clearFireStoreLogs(uuid, currentTimestamp);
-  }
-  
-  setLEDColor(OFF);
-  
-  if(DEBUG_SENSORS == false) {
     setESPSleepCycle(tts);
   } else {
-    setLEDColor(YELLOW);
+    Serial.print("NOW: ");
+    Serial.println(DateTime.now());
+    int currentTimestamp = DateTime.now();
+    
+    String uuid = getUUID();
+  
+    Firebase.setMaxRetry(firebaseData, 3);
+    Firebase.setMaxErrorQueue(firebaseData, 30);
+    Firebase.setReadTimeout(firebaseData, 1000 * 60 * 10);
+    Firebase.enableClassicRequest(firebaseData, true);
+    
+    sendSensorDataToFirestore(reading, currentTimestamp);
+  
+    if(currentTimestamp > (lastFirebaseCleanup + 86400)) {
+      setIndexOnRules();
+      clearFireStoreLogs(uuid, currentTimestamp);
+    }
+    
+    setLEDColor(OFF);
+    
+    if(DEBUG_SENSORS == false) {
+      setESPSleepCycle(tts);
+    } else {
+      setLEDColor(YELLOW);
+    }
   }
 }
 
