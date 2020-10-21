@@ -40,6 +40,14 @@ html, body {
             align-items: center;
 }
 
+.pie-chart {
+    display: flex;
+}
+
+.pie-chart svg {
+    margin: auto;
+}
+
 .hidden {
     display: none;
 }
