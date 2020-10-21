@@ -39,12 +39,12 @@
 #include <ESPDateTime.h>
 #include <DHT.h>
 
-#define LED_RED 12
-#define LED_GREEN 14
-#define LED_BLUE 27
-#define LDR 36
-#define CSMS 39
-#define DHT_PIN 34
+#define LED_RED GPIO_NUM_12
+#define LED_GREEN GPIO_NUM_14
+#define LED_BLUE GPIO_NUM_27
+#define LDR_PIN GPIO_NUM_36
+#define CSMS_PIN GPIO_NUM_39
+#define DHT_PIN GPIO_NUM_13
 
 #define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
 #define CONFIG_PORTAL_GPIO GPIO_NUM_33
@@ -78,14 +78,13 @@ void setup() {
   Serial.begin(115200);
   EEPROM.begin(512);
 
-  pinMode(LDR, INPUT);
-  pinMode(CSMS, INPUT);
+  pinMode(LDR_PIN, INPUT);
+  pinMode(CSMS_PIN, INPUT);
+  pinMode(DHT_PIN, INPUT);
 
   pinMode(LED_RED, OUTPUT);
   pinMode(LED_GREEN, OUTPUT);
   pinMode(LED_BLUE, OUTPUT);
-  pinMode(13, OUTPUT);
-  digitalWrite(13, HIGH);
 
   setLEDColor(YELLOW);
 
@@ -160,6 +159,10 @@ void setup() {
   Serial.println(reading.light);
   Serial.print("SENSOR WATER: ");
   Serial.println(reading.water);
+  Serial.print("SENSOR TEMPERATURE: ");
+  Serial.println(reading.temperature, 2);
+  Serial.print("SENSOR HUMIDITY: ");
+  Serial.println(reading.humidity, 2);
   
   setLEDColor(CYAN);
 
@@ -297,10 +300,16 @@ SensorReading readSensorData() {
  
   DHT dht(DHT_PIN, DHT22);
  
-  int light = analogRead(LDR);
-  int water = analogRead(CSMS);
+  int light = analogRead(LDR_PIN);
+  int water = analogRead(CSMS_PIN);
   float humidity = dht.readHumidity();
   float temperature = dht.readTemperature();
+
+  if (isnan(humidity) || isnan(temperature)) {
+    Serial.println(F("Failed to read from DHT sensor!"));
+    humidity = 0.0;
+    temperature = 0.0;
+  }
   
 
   SensorReading reading = {
