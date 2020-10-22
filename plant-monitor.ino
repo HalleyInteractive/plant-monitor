@@ -52,7 +52,8 @@
 FirebaseData firebaseData;
 bool shouldSaveConfig = false;
 static RTC_NOINIT_ATTR int lastFirebaseCleanup;
-const bool DEBUG_SENSORS = false;
+const bool DEBUG_SENSORS = true;
+const bool DHT_SENSOR = true;
 
 enum LedColor {
   OFF,
@@ -80,7 +81,10 @@ void setup() {
 
   pinMode(LDR_PIN, INPUT);
   pinMode(CSMS_PIN, INPUT);
-  pinMode(DHT_PIN, INPUT);
+
+  if(DHT_SENSOR) {
+    pinMode(DHT_PIN, INPUT);
+  }
 
   pinMode(LED_RED, OUTPUT);
   pinMode(LED_GREEN, OUTPUT);
@@ -159,10 +163,12 @@ void setup() {
   Serial.println(reading.light);
   Serial.print("SENSOR WATER: ");
   Serial.println(reading.water);
-  Serial.print("SENSOR TEMPERATURE: ");
-  Serial.println(reading.temperature, 2);
-  Serial.print("SENSOR HUMIDITY: ");
-  Serial.println(reading.humidity, 2);
+  if(DHT_SENSOR) {
+    Serial.print("SENSOR TEMPERATURE: ");
+    Serial.println(reading.temperature, 2);
+    Serial.print("SENSOR HUMIDITY: ");
+    Serial.println(reading.humidity, 2);
+  }
   
   setLEDColor(CYAN);
 
@@ -298,19 +304,23 @@ SensorReading readSensorData() {
   Serial.println("Reading sensor values");
   setLEDColor(RED);
  
-  DHT dht(DHT_PIN, DHT22);
+  
  
   int light = analogRead(LDR_PIN);
   int water = analogRead(CSMS_PIN);
-  float humidity = dht.readHumidity();
-  float temperature = dht.readTemperature();
-
-  if (isnan(humidity) || isnan(temperature)) {
-    Serial.println(F("Failed to read from DHT sensor!"));
-    humidity = 0.0;
-    temperature = 0.0;
-  }
   
+  float humidity = 0.0;
+  float temperature = 0.0;
+  if(DHT_SENSOR) {
+    DHT dht(DHT_PIN, DHT22);
+    humidity = dht.readHumidity();
+    temperature = dht.readTemperature();
+    if (isnan(humidity) || isnan(temperature)) {
+      Serial.println(F("Failed to read from DHT sensor!"));
+      humidity = 0.0;
+      temperature = 0.0;
+    }
+  }
 
   SensorReading reading = {
     light,
@@ -335,8 +345,10 @@ void sendSensorDataToFirestore(SensorReading reading, int currentTimestamp) {
   FirebaseJson sensorReading;
   sensorReading.set("light", reading.light);
   sensorReading.set("water", reading.water);
-  sensorReading.set("humidity", reading.humidity);
-  sensorReading.set("temperature", reading.temperature);
+  if(DHT_SENSOR) {
+    sensorReading.set("humidity", reading.humidity);
+    sensorReading.set("temperature", reading.temperature);
+  }
   sensorReading.set("timestamp", currentTimestamp);
   
   Firebase.updateNode(firebaseData, "plants/" + uuid + "/last_update/", sensorReading);
@@ -468,9 +480,11 @@ void print_wakeup_reason(){
 void loop() {
   if(DEBUG_SENSORS) {
     SensorReading reading = readSensorData();
-     Serial.print("Light:  "); Serial.print(reading.light); Serial.print("  ");
-     Serial.print("Water:  "); Serial.print(reading.water); Serial.print("  ");
-     Serial.print("Humidity:  "); Serial.print(reading.humidity); Serial.print("  ");
-     Serial.print("Temperature:  "); Serial.print(reading.temperature); Serial.println("");
+//     Serial.print("Light:  "); Serial.print(reading.light); Serial.print("  ");
+//     Serial.print("Water:  "); Serial.print(reading.water); Serial.print("  ");
+     if(DHT_SENSOR) {
+      Serial.print("Humidity:  "); Serial.print(reading.humidity); Serial.print("  ");
+      Serial.print("Temperature:  "); Serial.print(reading.temperature); Serial.println("");
+     }
   }
 }
