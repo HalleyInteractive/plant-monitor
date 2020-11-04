@@ -52,7 +52,7 @@
 FirebaseData firebaseData;
 bool shouldSaveConfig = false;
 static RTC_NOINIT_ATTR int lastFirebaseCleanup;
-const bool DEBUG_SENSORS = true;
+const bool DEBUG_SENSORS = false;
 const bool DHT_SENSOR = true;
 
 enum LedColor {
