@@ -43,7 +43,7 @@
 #define LDR 36
 #define CSMS 39
 
-#define PLANT_SSID "plant"
+#define PLANT_SSID "HappyPlant"
 #define PLANT_PASS "TakeCareOfMe"
 
 #define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
@@ -125,6 +125,7 @@ void setup() {
     wifiManager.startConfigPortal(PLANT_SSID, PLANT_PASS);
   } else {
     setLEDColor(BLUE);
+    Serial.println("Auto Connect");
     wifiManager.autoConnect(PLANT_SSID, PLANT_PASS);
   }
   
@@ -426,22 +427,11 @@ void setIndexOnRules() {
 }
 
 /**
- * Returns string of the WiFi mac address
- * bytes.
- * @return String of WiFi mac address.
+ * Returns string authenticated Firebase User.
+ * @return String of authenticated user.
  */
 String getUUID() {
-  byte mac[6];
-  WiFi.macAddress(mac);
-  String uuid = 
-    "uuid" + 
-    String(mac[0], HEX) + 
-    String(mac[1], HEX) + 
-    String(mac[2], HEX) + 
-    String(mac[3], HEX) + 
-    String(mac[4], HEX) + 
-    String(mac[5], HEX);
-  return uuid;
+  return firebaseAuth.token.uid.c_str();
 }
 
 /**
