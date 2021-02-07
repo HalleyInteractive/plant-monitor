@@ -30,7 +30,7 @@
  */
 
 #include <FS.h>
-#include <WiFiManager.h>
+#include <WiFi.h>
 #include <ArduinoJson.h>
 #include <SPIFFS.h>
 #include <FirebaseESP32.h>
@@ -42,9 +42,6 @@
 #define LED_BLUE 27
 #define LDR 36
 #define CSMS 39
-
-#define PLANT_SSID "HappyPlant"
-#define PLANT_PASS "TakeCareOfMe"
 
 #define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
 #define CONFIG_PORTAL_GPIO GPIO_NUM_33
@@ -73,12 +70,13 @@ struct SensorReading {
   int water;
 };
 
-WiFiManager wifiManager;
-WiFiManagerParameter paramDatabaseUrl("databaseUrl", "Firebase Database URL", "", 64);
-WiFiManagerParameter paramApiKey("apiKey", "Firebase API Key", "", 64);
-WiFiManagerParameter paramUsername("username", "Firebase Username", "", 64);
-WiFiManagerParameter paramPassword("password", "Firebase Password", "", 64);
-WiFiManagerParameter paramTimeToSleep("tts", "Time between reads", "", 16);
+const char* FIREBASE_DATABASE_URL = "PLACEHOLDER_FOR_DATABASE_URL*******************************";
+const char* FIREBASE_API_KEY = "PLACEHOLDER_FOR_API_KEY************************************";
+const char* FIREBASE_USERNAME = "PLACEHOLDER_FOR_USERNAME***********************************";
+const char* FIREBASE_PASSWORD = "PLACEHOLDER_FOR_FIREBASE_PASSWORD**************************";
+const char* TTS = "PLACEHOLDER_FOR_TTS****************************************";
+const char* SSID = "PLACEHOLDER_FOR_SSID*********";
+const char* WIFI_PASSWORD = "PLACEHOLDER_FOR_PASSWORD***********************************";
 
 /**
  * Setup WifiManager and components.
@@ -95,64 +93,28 @@ void setup() {
   pinMode(13, OUTPUT);
   digitalWrite(13, HIGH);
 
-  readConfig();
-  paramDatabaseUrl.setValue(firebaseConfig.host.c_str(), 64);
-  paramApiKey.setValue(firebaseConfig.api_key.c_str(), 64);
-  paramUsername.setValue(firebaseAuth.user.email.c_str(), 64);
-  paramPassword.setValue(firebaseAuth.user.password.c_str(), 64);
-  paramTimeToSleep.setValue(timeToSleep.c_str(), 16);
-
-  wifiManager.addParameter(&paramDatabaseUrl);
-  wifiManager.addParameter(&paramApiKey);
-  wifiManager.addParameter(&paramUsername);
-  wifiManager.addParameter(&paramPassword);
-  wifiManager.addParameter(&paramTimeToSleep);
+  setLEDColor(BLUE);
   
-  wifiManager.setSaveConfigCallback(saveConfigCallback);
-
-  print_wakeup_reason();
-  esp_sleep_wakeup_cause_t wakeup_reason;
-  wakeup_reason = esp_sleep_get_wakeup_cause();
-  wifiManager.setConfigPortalTimeout(180);
-
-  if(wakeup_reason == 1 || wakeup_reason == 2) {
-    // If woken up by external interrupt signal we start the config portal.
-    setLEDColor(BLUE);
-    wifiManager.startConfigPortal(PLANT_SSID, PLANT_PASS);
-  } else if (timeToSleep.toInt() <= 5) {
-    Serial.println("Could not parse timeToSleep");
-    setLEDColor(MAGENTA);
-    wifiManager.startConfigPortal(PLANT_SSID, PLANT_PASS);
-  } else {
-    setLEDColor(BLUE);
-    Serial.println("Auto Connect");
-    wifiManager.autoConnect(PLANT_SSID, PLANT_PASS);
+  WiFi.begin(SSID, FIREBASE_PASSWORD);
+ 
+  while (WiFi.status() != WL_CONNECTED) {
+      delay(1000);
+      Serial.println("Establishing connection to WiFi..");
   }
-  
-  setLEDColor(GREEN);
-  if(shouldSaveConfig) {
-    Serial.println("Getting params from wifi manager to save");
-    firebaseConfig.host = paramDatabaseUrl.getValue();
-    firebaseConfig.api_key = paramApiKey.getValue();
-    firebaseAuth.user.email = paramUsername.getValue();
-    firebaseAuth.user.password = paramPassword.getValue();
-    timeToSleep = paramTimeToSleep.getValue();
     
-    saveConfig();
-    shouldSaveConfig = false;
-  }
+  Serial.println("Connected to network");
 
-  Serial.print("Time to Sleep (Seconds): ");
-  Serial.println(timeToSleep);
-
+  firebaseConfig.host = FIREBASE_DATABASE_URL;
+  firebaseConfig.api_key = FIREBASE_API_KEY;
+  firebaseAuth.user.email = FIREBASE_USERNAME;
+  firebaseAuth.user.password = FIREBASE_PASSWORD;
   Firebase.begin(&firebaseConfig, &firebaseAuth);
   Firebase.reconnectWiFi(true);
-  struct token_info_t info = Firebase.authTokenInfo();
 
+  struct token_info_t info = Firebase.authTokenInfo();
   if (info.status == token_status_error) {
     Serial.printf("Token error: %s\n\n", getTokenError(info).c_str());
     Serial.println("Error connecting to Firebase...");
-    wifiManager.startConfigPortal(PLANT_SSID, PLANT_PASS);
     delay(5000);
     ESP.restart();
   }
@@ -169,7 +131,7 @@ void setup() {
   DateTime.begin();
   if(!DateTime.isTimeValid()) {
     Serial.println("Failed to get time from server.");
-    setESPSleepCycle(timeToSleep.toInt());
+    setESPSleepCycle(atoi(TTS));
   } else {
     Serial.print("NOW: ");
     Serial.println(DateTime.now());
@@ -192,7 +154,7 @@ void setup() {
     setLEDColor(OFF);
     
     if(DEBUG_SENSORS == false) {
-      setESPSleepCycle(timeToSleep.toInt());
+      setESPSleepCycle(atoi(TTS));
     } else {
       setLEDColor(YELLOW);
     }
@@ -218,59 +180,6 @@ void setESPSleepCycle(int tts) {
   esp_sleep_enable_timer_wakeup(tts * uS_TO_S_FACTOR);
   Serial.println("Setup ESP32 to sleep for every " + String(tts) + " Seconds");
   esp_deep_sleep_start();
-}
-
-/**
- * Triggered by the WifiManager if config has changed and
- * we need to write parameters to EEPROM.
- */
-void saveConfigCallback () {
-  shouldSaveConfig = true;
-}
-
-void readConfig(){
-  // SPIFFS.format(); // Clean FS
-  if (SPIFFS.begin(true)) {
-    if (SPIFFS.exists("/config.json")) {
-      File configFile = SPIFFS.open("/config.json", "r");
-      if (configFile) {
-        size_t size = configFile.size();
-        std::unique_ptr<char[]> buf(new char[size]);
-        configFile.readBytes(buf.get(), size);
-        DynamicJsonDocument json(1024);
-        auto deserializeError = deserializeJson(json, buf.get());
-        serializeJson(json, Serial);
-        if (!deserializeError) {
-          firebaseConfig.host = (const char*)json["databaseUrl"];
-          firebaseConfig.api_key = (const char*)json["apiKey"];
-          firebaseAuth.user.email = (const char*)json["username"];
-          firebaseAuth.user.password = (const char*)json["password"];
-          timeToSleep = (const char*)json["tts"];
-        } else {
-          Serial.println("Failed to load json config");
-        }
-      }
-    }
-  } else {
-    Serial.println("Failed to mount FS");
-  }
-}
-
-void saveConfig() {
-    DynamicJsonDocument json(1024);
-    json["databaseUrl"] = firebaseConfig.host;
-    json["apiKey"] = firebaseConfig.api_key;
-    json["username"] = firebaseAuth.user.email;
-    json["password"] = firebaseAuth.user.password;
-    json["tts"] = timeToSleep;
-
-    File configFile = SPIFFS.open("/config.json", "w");
-    if (!configFile) {
-      Serial.println("Failed to open config file for writing");
-    }
-    serializeJson(json, Serial);
-    serializeJson(json, configFile);
-    configFile.close();
 }
 
 /**
