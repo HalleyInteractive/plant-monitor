@@ -94,23 +94,6 @@ void setup() {
   digitalWrite(13, HIGH);
 
   setLEDColor(BLUE);
-  readConfig();
-
-  if(timeToSleep == "") {
-    timeToSleep = "30";
-  }
-
-  paramDatabaseUrl.setValue(firebaseConfig.host.c_str(), 128);
-  paramApiKey.setValue(firebaseConfig.api_key.c_str(), 64);
-  paramUsername.setValue(firebaseAuth.user.email.c_str(), 64);
-  paramPassword.setValue(firebaseAuth.user.password.c_str(), 64);
-  paramTimeToSleep.setValue(timeToSleep.c_str(), 16);
-
-  wifiManager.addParameter(&paramDatabaseUrl);
-  wifiManager.addParameter(&paramApiKey);
-  wifiManager.addParameter(&paramUsername);
-  wifiManager.addParameter(&paramPassword);
-  wifiManager.addParameter(&paramTimeToSleep);
   
   WiFi.begin(SSID, FIREBASE_PASSWORD);
  
