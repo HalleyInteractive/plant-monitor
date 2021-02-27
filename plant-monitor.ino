@@ -70,7 +70,7 @@ struct SensorReading {
   int water;
 };
 
-const char* FIREBASE_DATABASE_URL = "PLACEHOLDER_FOR_DATABASE_URL*******************************";
+const char* FIREBASE_DATABASE_URL = "PLACEHOLDER_FOR_DATABASE_URL*******************************************************************************************";
 const char* FIREBASE_API_KEY = "PLACEHOLDER_FOR_API_KEY************************************";
 const char* FIREBASE_USERNAME = "PLACEHOLDER_FOR_USERNAME***********************************";
 const char* FIREBASE_PASSWORD = "PLACEHOLDER_FOR_FIREBASE_PASSWORD**************************";
