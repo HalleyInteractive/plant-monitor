@@ -96,7 +96,12 @@ void setup() {
   digitalWrite(13, HIGH);
 
   readConfig();
-  paramDatabaseUrl.setValue(firebaseConfig.host.c_str(), 64);
+
+  if(timeToSleep == "") {
+    timeToSleep = "30";
+  }
+
+  paramDatabaseUrl.setValue(firebaseConfig.host.c_str(), 128);
   paramApiKey.setValue(firebaseConfig.api_key.c_str(), 64);
   paramUsername.setValue(firebaseAuth.user.email.c_str(), 64);
   paramPassword.setValue(firebaseAuth.user.password.c_str(), 64);
