@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang='en'>
+  <head>
+    <title>WebESP</title>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <!-- Origin trial key for https://ocu.li -->
+    <meta http-equiv='origin-trial' content='AjADr2VYH7a8jNR5U/GJ/3RF/h9kgze2ea3tpUVThbZcj2YP4KbtQ6PtjVPzDCPPUXpA0fPppsND9OyGp7eOeQMAAABGeyJvcmlnaW4iOiJodHRwczovL29jdS5saTo0NDMiLCJmZWF0dXJlIjoiU2VyaWFsIiwiZXhwaXJ5IjoxNjE0OTgzMTYxfQ=='>
+    <link rel='stylesheet' href='style.css'>
+    <script src='js/main.js' defer></script>
+  </head>
+
+  <body>
+    <div style='display:flex; flex-direction:column; width:100%; height:100%;'>
+      <div class='header'>
+        <button id='connect' type='button' style='display:none;'>Select Device</button>
+        <button id='reset' type='button' style='display:none;'>Reset</button>
+        <div id='progress' style='display:none;'><div id='innerprogress'></div></div>
+        <table>
+          <tr><td>SSID</td><td><input id='PLACEHOLDER_FOR_SSID'/></td></tr>
+          <tr><td>Key</td><td><input id='PLACEHOLDER_FOR_PASSWORD'/></td></tr>
+          <tr><td>Firebase URL</td><td><input id='PLACEHOLDER_FOR_DATABASE_URL'/></td></tr>
+          <tr><td>Firebase API Key</td><td><input id='PLACEHOLDER_FOR_API_KEY'/></td></tr>
+          <tr><td>Firebase Username</td><td><input id='PLACEHOLDER_FOR_USERNAME'/></td></tr>
+          <tr><td>Firebase Password</td><td><input id='PLACEHOLDER_FOR_FIREBASE_PASSWORD'/></td></tr>
+          <tr><td>Time To Sleep</td><td><input id='PLACEHOLDER_FOR_TTS' value="30"/></td></tr>
+        </table>
+        <br/>
+      </div>
+      <div id='main' class='main'>
+        <div id='nowebserial'>
+        The WebSerial API is not supported on this browser or device.
+        You probably want to try a recent version of chrome on some
+        form of desktop. If you have disabled Javascript, you may want
+        to reenable it.
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,730 @@
+"use strict";
+/// <reference path='./serial.d.ts'/>
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+let terminal;
+const DEFAULT_BAUD = 115200;
+const FAST_BAUD = 460800;
+// Supported commands. https://github.com/espressif/esptool/wiki/Serial-Protocol
+var Command;
+(function (Command) {
+    Command[Command["ESP_FLASH_BEGIN"] = 2] = "ESP_FLASH_BEGIN";
+    Command[Command["ESP_FLASH_DATA"] = 3] = "ESP_FLASH_DATA";
+    Command[Command["ESP_FLASH_END"] = 4] = "ESP_FLASH_END";
+    Command[Command["ESP_MEM_BEGIN"] = 5] = "ESP_MEM_BEGIN";
+    Command[Command["ESP_MEM_END"] = 6] = "ESP_MEM_END";
+    Command[Command["ESP_MEM_DATA"] = 7] = "ESP_MEM_DATA";
+    Command[Command["ESP_SYNC"] = 8] = "ESP_SYNC";
+    Command[Command["ESP_READ_REG"] = 10] = "ESP_READ_REG";
+    Command[Command["ESP_SPI_SET_PARAMS"] = 11] = "ESP_SPI_SET_PARAMS";
+    Command[Command["ESP_SPI_ATTACH"] = 13] = "ESP_SPI_ATTACH";
+    Command[Command["ESP_CHANGE_BAUDRATE"] = 15] = "ESP_CHANGE_BAUDRATE";
+})(Command || (Command = {}));
+var ChipFamily;
+(function (ChipFamily) {
+    ChipFamily[ChipFamily["UNKNOWN"] = 0] = "UNKNOWN";
+    ChipFamily[ChipFamily["ESP8266"] = 1] = "ESP8266";
+    ChipFamily[ChipFamily["ESP32"] = 2] = "ESP32";
+    ChipFamily[ChipFamily["ESP32S2"] = 3] = "ESP32S2";
+})(ChipFamily || (ChipFamily = {}));
+const familyNames = ['Unknown', 'ESP8266', 'ESP32', 'ESP32S2'];
+function sha256(buf) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const hashBuffer = yield crypto.subtle.digest('SHA-256', buf.buffer);
+        return new Uint8Array(hashBuffer);
+    });
+}
+const utf8Encoder = new TextEncoder();
+const utf8Decoder = new TextDecoder();
+class Partition {
+    constructor(offset, filename) {
+        this.offset = offset;
+        this.filename = filename;
+        this.binary = new Uint8Array(0);
+        this.placeholders = {};
+    }
+    load() {
+        return __awaiter(this, void 0, void 0, function* () {
+            this.binary = new Uint8Array(yield (yield fetch(this.filename)).arrayBuffer());
+            terminal.print('Loaded ' + this.filename);
+            const p = utf8Encoder.encode('PLACEHOLDER_FOR');
+            for (let k = 0; k < this.binary.length; ++k) {
+                let j = 0;
+                for (; j < p.length; ++j) {
+                    if (this.binary[k + j] != p[j])
+                        break;
+                }
+                if (j == p.length) {
+                    // Found something.
+                    const s = utf8Decoder.decode(this.binary.slice(k, k + 60));
+                    const ss = s.split('*');
+                    console.log(ss[0], s);
+                    this.placeholders[ss[0]] = k;
+                }
+            }
+            return true;
+        });
+    }
+    patch(off, str, len) {
+        const sb = utf8Encoder.encode(str);
+        for (let i = 0; i < sb.length; ++i) {
+            this.binary[off + i] = sb[i];
+        }
+        for (let i = sb.length; i < len; ++i) {
+            this.binary[off + i] = 0;
+        }
+    }
+    binChecksum() {
+        return __awaiter(this, void 0, void 0, function* () {
+            // Update checksum after applying patches.
+            const b = this.binary;
+            const segs = b[1];
+            let soff = 24;
+            let cs = 0xef;
+            for (let i = 0; i < segs; ++i) {
+                const sl = b[soff + 4] + (b[soff + 5] << 8) + (b[soff + 6] << 16) + (b[soff + 7] << 24);
+                for (let j = 0; j < sl; ++j) {
+                    cs ^= b[soff + 8 + j];
+                }
+                soff += 8 + sl;
+            }
+            b[b.length - 33] = cs;
+            // Update sha256 hash of image,
+            const hash = yield sha256(b.slice(0, b.length - 32));
+            for (let i = 0; i < hash.length; ++i) {
+                b[b.length - 32 + i] = hash[i];
+            }
+        });
+    }
+    applyPatches() {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (this.placeholders.length == 0)
+                return;
+            console.log(this.placeholders);
+            for (let k in this.placeholders) {
+                let len = 60;
+                if (k == "PLACEHOLDER_FOR_WIFI_SSID") {
+                    len = 30;
+                }
+                else if (k == "PLACEHOLDER_FOR_DATABASE_URL") {
+                    len = 120;
+                }
+                console.group('test');
+                console.log(k);
+                console.log(document.getElementById(k));
+                console.log(document.getElementById(k));
+                console.groupEnd();
+                this.patch(this.placeholders[k], document.getElementById(k).value, len);
+            }
+            return this.binChecksum();
+        });
+    }
+}
+class ESPImage {
+    constructor() {
+        this.partitions = [];
+    }
+    load() {
+        return __awaiter(this, void 0, void 0, function* () {
+            this.partitions.push(new Partition(0x8000, 'bin/partition-table.bin'));
+            this.partitions.push(new Partition(0x1000, 'bin/bootloader.bin'));
+            this.partitions.push(new Partition(0x10000, 'bin/plant-monitor.ino.bin'));
+            for (let i = 0; i < this.partitions.length; ++i) {
+                yield this.partitions[i].load();
+                yield this.partitions[i].applyPatches();
+            }
+        });
+    }
+}
+/**
+ * Asynchronous sleep helper function.
+ * Typical usage in an async function would be
+ *    await sleep(ms);
+ * @param ms Time to sleep in milliseconds.
+ */
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+class CommandWriter {
+    constructor() {
+        this.off = 0;
+        this.buf = new Uint8Array(1024);
+    }
+    clear() {
+        this.off = 0;
+    }
+    get() {
+        return this.buf.slice(0, this.off);
+    }
+    framed() {
+        let ol = this.off + 2;
+        for (let i = 0; i < this.off; ++i) {
+            if (this.buf[i] == 0xdb || this.buf[i] == 0xc0)
+                ol++;
+        }
+        const o = new Uint8Array(ol);
+        let oo = 0;
+        o[oo++] = 0xc0;
+        for (let i = 0; i < this.off; ++i) {
+            const b = this.buf[i];
+            if (b == 0xdb) {
+                o[oo++] = 0xdb;
+                o[oo++] = 0xdd;
+            }
+            else if (b == 0xc0) {
+                o[oo++] = 0xdb;
+                o[oo++] = 0xdc;
+            }
+            else {
+                o[oo++] = b;
+            }
+        }
+        o[oo++] = 0xc0;
+        return o;
+    }
+    unframed() {
+        let ol = this.off;
+        for (let i = 0; i < this.off; ++i) {
+            if (this.buf[i] == 0xdb)
+                ol--;
+        }
+        const o = new Uint8Array(ol);
+        let oo = 0;
+        for (let i = 0; i < this.off; ++i) {
+            let b = this.buf[i];
+            if (b == 0xdb) {
+                b = this.buf[++i];
+                if (b == 0xdd) {
+                    o[oo++] = 0xdb;
+                }
+                else if (b == 0xdc) {
+                    o[oo++] = 0xc0;
+                }
+            }
+            else {
+                o[oo++] = b;
+            }
+        }
+        return o;
+    }
+    ensure(n) {
+        if (this.off + n <= this.buf.length)
+            return;
+        const nbuf = new Uint8Array(((this.buf.length + n + 1023) >> 10) << 10);
+        for (let i = 0; i < this.buf.length; ++i) {
+            nbuf[i] = this.buf[i];
+        }
+        this.buf = nbuf;
+    }
+    u8(v) {
+        this.ensure(1);
+        this.buf[this.off] = v & 0xff;
+        this.off += 1;
+        return this;
+    }
+    u16(v) {
+        this.ensure(2);
+        this.buf[this.off] = v & 0xff;
+        this.buf[this.off + 1] = (v >> 8) & 0xff;
+        this.off += 2;
+        return this;
+    }
+    u32(v) {
+        this.ensure(4);
+        this.buf[this.off] = v & 0xff;
+        this.buf[this.off + 1] = (v >> 8) & 0xff;
+        this.buf[this.off + 2] = (v >> 16) & 0xff;
+        this.buf[this.off + 3] = (v >> 24) & 0xff;
+        this.off += 4;
+        return this;
+    }
+    buffer(b) {
+        this.ensure(b.length);
+        for (let i = 0; i < b.length; ++i) {
+            this.buf[this.off + i] = b[i];
+        }
+        this.off += b.length;
+        return this;
+    }
+}
+class ResponseReader {
+    constructor(value, data) {
+        this.value = value;
+        this.data = data;
+        this.off = 0;
+        this.length = 0;
+        this.length = data.length;
+    }
+    u8() {
+        let v = this.data[this.off];
+        this.off += 1;
+        return v;
+    }
+    u16() {
+        let v = this.data[this.off] + (this.data[this.off + 1] << 8);
+        this.off += 2;
+        return v;
+    }
+    u32() {
+        let v = this.data[this.off] + (this.data[this.off + 1] << 8) + (this.data[this.off + 2] << 16) + (this.data[this.off + 3] << 24);
+        this.off += 4;
+        return v;
+    }
+}
+class PortController {
+    constructor(port, target) {
+        this.port = port;
+        this.target = target;
+        this.connected = false;
+        this.portReader = null;
+        this.reader = null;
+        this.writer = null;
+        this.rate = 115200;
+    }
+    connect(rate) {
+        return __awaiter(this, void 0, void 0, function* () {
+            yield this.port.open({ baudRate: rate, dataBits: 8, stopBits: 1, bufferSize: 255, parity: 'none', flowControl: 'none' });
+            this.connected = true;
+            this.rate = rate;
+            terminal.print("Serial port opened at " + this.rate + " bps.");
+            // Start the read loop, keep the promise so we can check later for termination. 
+            this.portReader = this.readLoop();
+        });
+    }
+    disconnect() {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!this.connected)
+                return;
+            this.connected = false;
+            if (this.reader) {
+                yield this.reader.cancel();
+                this.reader = null;
+            }
+            if (this.writer) {
+                yield this.writer.close();
+                this.writer = null;
+            }
+            yield this.portReader; // Wait for the read loop to terminate.
+            yield this.port.close();
+            terminal.print("Serial port closed.");
+        });
+    }
+    /**
+     * Writes the provided data to the port.
+     * @param data Byte array to write.
+     */
+    write(data) {
+        return __awaiter(this, void 0, void 0, function* () {
+            this.writer = this.port.writable.getWriter();
+            yield this.writer.write(data);
+            this.writer.releaseLock();
+            this.writer = null;
+        });
+    }
+    /**
+     * Reads from the serial port until something happens.
+     */
+    readLoop() {
+        return __awaiter(this, void 0, void 0, function* () {
+            while (this.connected) {
+                try {
+                    this.reader = this.port.readable.getReader();
+                    for (;;) {
+                        const { value, done } = yield this.reader.read();
+                        if (value) {
+                            this.target.receive(value);
+                        }
+                        if (done) {
+                            break;
+                        }
+                    }
+                    console.log('Releasing reader.');
+                    this.reader.releaseLock();
+                    this.reader = null;
+                }
+                catch (e) {
+                    console.error(e);
+                }
+                console.log('Restarting read loop.');
+            }
+            console.log('Left read loop.');
+        });
+    }
+    resetPulse() {
+        return __awaiter(this, void 0, void 0, function* () {
+            this.port.setSignals({ dataTerminalReady: false, readyToSend: true });
+            yield sleep(100);
+            this.port.setSignals({ dataTerminalReady: true, readyToSend: false });
+            yield sleep(50);
+        });
+    }
+}
+function hex2(v) {
+    const s = v.toString(16);
+    if (s.length == 1)
+        return '0' + s;
+    return s;
+}
+class ESPLoader {
+    constructor(port, image) {
+        this.port = port;
+        this.image = image;
+        this.ready = false;
+        this.chipFamily = ChipFamily.UNKNOWN;
+        this.eFuses = [0, 0, 0, 0];
+        this.macAddress = [0, 0, 0, 0, 0, 0];
+        this.resolveResponse = null;
+    }
+    sync() {
+        return __awaiter(this, void 0, void 0, function* () {
+            for (let i = 0; i < 10; i++) {
+                terminal.print("Sync attempt #" + (i + 1) + " of 10");
+                yield this.sendCommand(Command.ESP_SYNC, new Uint8Array([
+                    0x07, 0x07, 0x12, 0x20,
+                    0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55,
+                    0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55,
+                    0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55,
+                    0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55
+                ]));
+                let responseCount = 0;
+                for (let j = 0; j < 8; ++j) {
+                    const data = yield this.response(Command.ESP_SYNC, 100);
+                    if (data === null) {
+                        continue;
+                    }
+                    if (data.length > 1 && data.u16() == 0) {
+                        responseCount++;
+                    }
+                }
+                if (responseCount > 0) {
+                    console.log('Received ' + responseCount + ' frames');
+                    this.ready = true;
+                    break;
+                }
+            }
+            if (!this.ready)
+                return false;
+            yield sleep(100);
+            yield this.readChipFamily();
+            yield this.readEfuses();
+            terminal.print('Chip family: ' + familyNames[this.chipFamily]);
+            terminal.print('MAC Address: ' + this.macAddress.map(value => hex2(value)).join(":"));
+            document.getElementById('progress').style.display = 'block';
+            for (let i = 0; i < this.image.partitions.length; ++i) {
+                terminal.print('Flashing section ' + i);
+                yield this.flashData(this.image.partitions[i].binary, this.image.partitions[i].offset);
+            }
+            document.getElementById('progress').style.display = 'none';
+            yield this.port.resetPulse();
+            return true;
+        });
+    }
+    readChipFamily() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const r = yield this.readReg(0x60000078);
+            if (r == 0x15122500) {
+                this.chipFamily = ChipFamily.ESP32;
+            }
+            else if (r == 0x500) {
+                this.chipFamily = ChipFamily.ESP32S2;
+            }
+            else if (r == 0x00062000) {
+                this.chipFamily = ChipFamily.ESP8266;
+            }
+        });
+    }
+    ;
+    readEfuses() {
+        return __awaiter(this, void 0, void 0, function* () {
+            let baseAddr = [0, 0x3FF00050, 0x6001A000, 0x6001A000][this.chipFamily];
+            for (let i = 0; i < 4; i++) {
+                this.eFuses[i] = yield this.readReg(baseAddr + 4 * i);
+            }
+            // Parse MAC Address out of fuses, this is valid for ESP32 / ESP32S2
+            this.macAddress[0] = (this.eFuses[2] >> 8) & 0xff;
+            this.macAddress[1] = this.eFuses[2] & 0xff;
+            this.macAddress[2] = (this.eFuses[1] >> 24) & 0xff;
+            this.macAddress[3] = (this.eFuses[1] >> 16) & 0xff;
+            this.macAddress[4] = (this.eFuses[1] >> 8) & 0xff;
+            this.macAddress[5] = this.eFuses[1] & 0xff;
+        });
+    }
+    ;
+    readReg(reg) {
+        return __awaiter(this, void 0, void 0, function* () {
+            let r = yield this.command(Command.ESP_READ_REG, new CommandWriter().u32(reg).get());
+            if (r == null) {
+                console.error("No response received");
+                return 0;
+            }
+            if (r.u32() == 0)
+                return r.value;
+            return 0;
+        });
+    }
+    ;
+    setBaudrate(rate) {
+        return __awaiter(this, void 0, void 0, function* () {
+            console.log("Sending baud rate change command to ESP32: " + rate);
+            yield this.command(Command.ESP_CHANGE_BAUDRATE, new CommandWriter().u32(rate).u32(0).get());
+            yield sleep(500);
+            console.log("Changing serial port baud rate to: " + rate);
+            yield this.port.disconnect();
+            yield this.port.connect(rate);
+            console.log("Sending baud rate change command to ESP32 again: " + rate);
+            yield this.command(Command.ESP_CHANGE_BAUDRATE, new CommandWriter().u32(rate).u32(0).get());
+            console.log("Changed baud rate to " + rate);
+        });
+    }
+    flashData(buf, off) {
+        return __awaiter(this, void 0, void 0, function* () {
+            terminal.print('Writing ' + buf.length + ' bytes to 0x' + off.toString(16));
+            const blockBits = 9;
+            const blockSize = 1 << blockBits;
+            const blockCount = (buf.length + blockSize - 1) >> blockBits;
+            yield this.command(Command.ESP_SPI_ATTACH, new CommandWriter().u32(0).u32(0).get());
+            yield this.command(Command.ESP_SPI_SET_PARAMS, new CommandWriter().u32(0).u32(4 * 1024 * 1024).u32(0x10000).u32(0x1000).u32(0x100).u32(0xffff).get());
+            yield this.command(Command.ESP_FLASH_BEGIN, new CommandWriter().u32(buf.length).u32(blockCount).u32(blockSize).u32(off).get(), 0, 30000 * blockCount * blockSize / 1000000 + 500);
+            const block = new Uint8Array(blockSize);
+            const progress = document.getElementById('innerprogress');
+            for (let o = 0; o < buf.length; o += blockSize) {
+                let cs = 0xef;
+                for (let i = 0; i < blockSize; ++i) {
+                    progress.style.width = Math.floor(100 * o / buf.length) + "%";
+                    let v = 0xff;
+                    if (o + i < buf.length) {
+                        v = buf[o + i];
+                    }
+                    block[i] = v;
+                    cs ^= v;
+                }
+                yield this.command(Command.ESP_FLASH_DATA, new CommandWriter().u32(blockSize).u32(o / blockSize).u32(0).u32(0).buffer(block).get(), cs);
+            }
+            // Do not send this, since we want to continue flashing.
+            // await this.command(Command.ESP_FLASH_END, new CommandWriter().u32(1).get());
+        });
+    }
+    command(cmd, buffer, checksum = 0, timeout = 2000) {
+        return __awaiter(this, void 0, void 0, function* () {
+            yield this.sendCommand(cmd, buffer, checksum);
+            return this.response(cmd, timeout);
+        });
+    }
+    sendCommand(cmd, buffer, checksum = 0) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const s = new CommandWriter();
+            s.u8(0x00);
+            s.u8(cmd);
+            s.u16(buffer.length);
+            s.u32(checksum);
+            s.buffer(buffer);
+            yield this.port.write(s.framed());
+        });
+    }
+    ;
+    response(cmd, timeout) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const p = new Promise(r => { this.resolveResponse = r; });
+            const t = setTimeout(() => this.resolveResponse(null), timeout);
+            const r = yield p;
+            if (r === null) {
+                console.log('Command timed out');
+                return null;
+            }
+            clearTimeout(t);
+            if (r[0] != 1) {
+                console.log('Frame does not start with 1', r);
+                return null;
+            }
+            if (r[1] != cmd) {
+                console.log('Frame does not match command ' + cmd, r);
+                return null;
+            }
+            const l = r[2] + (r[3] << 8);
+            if (l + 8 != r.length) {
+                console.log('Frame does not have length ' + r.length, r);
+                return null;
+            }
+            const v = r[4] + (r[5] << 8) + (r[6] << 16) + (r[7] << 24);
+            this.resolveResponse = null;
+            return new ResponseReader(v, r.slice(8));
+        });
+    }
+    receiveFrame(data) {
+        if (this.resolveResponse == null) {
+            console.log('Received unexpected frame', data);
+        }
+        else {
+            this.resolveResponse(data);
+        }
+    }
+}
+const sequences = {
+    '[0;32m': '<span style="color:#0c0;">',
+    '[0;33m': '<span style="color:#cc0;">',
+    '[0m': '</span>',
+};
+class Terminal {
+    constructor(id) {
+        this.div = document.getElementById(id);
+    }
+    write(a) {
+        let s = "";
+        const entry = this.getLogEntryElement();
+        for (let i = 0; i < a.length; ++i) {
+            // This is kind of crappy, since it assumes that everything is kind of well formed.
+            if (a.charCodeAt(i) == 27) {
+                for (const k in sequences) {
+                    if (a.substr(i + 1, k.length) == k) {
+                        s += sequences[k];
+                        i += k.length;
+                    }
+                }
+            }
+            else {
+                s += a[i];
+            }
+        }
+        entry.innerHTML = s;
+        this.div.appendChild(entry);
+        this.truncateTerminal();
+        this.scrollTerminal();
+    }
+    print(s) {
+        const entry = this.getLogEntryElement();
+        entry.innerHTML += '<span style="background-color:#444;border:1px solid #ccc; border-radius:3px;">' + s + '</span>';
+        this.div.appendChild(entry);
+        this.truncateTerminal();
+        this.scrollTerminal();
+    }
+    getLogEntryElement() {
+        const entry = document.createElement('div');
+        entry.classList.add('log-entry');
+        return entry;
+    }
+    truncateTerminal() {
+        while (this.div.children.length > Terminal.maxLogs) {
+            this.div.removeChild(this.div.firstChild);
+        }
+    }
+    scrollTerminal() {
+        this.div.scrollTop = this.div.scrollHeight;
+    }
+}
+Terminal.maxLogs = 200;
+class Controller {
+    constructor() {
+        this.port = null;
+        this.inFrame = false;
+        this.frame = new CommandWriter();
+        this.decoder = new TextDecoder();
+        this.loader = null;
+        this.connect = document.getElementById('connect');
+        this.connect.addEventListener('click', this.onConnect.bind(this));
+        this.reset = document.getElementById('reset');
+        this.reset.addEventListener('click', this.onReset.bind(this));
+        terminal = new Terminal('main');
+        if ('serial' in navigator) {
+            this.connect.style.display = 'inline';
+            document.getElementById('nowebserial').style.display = 'none';
+        }
+        const placeholders = [
+            'PLACEHOLDER_FOR_SSID',
+            'PLACEHOLDER_FOR_PASSWORD',
+            'PLACEHOLDER_FOR_DATABASE_URL',
+            'PLACEHOLDER_FOR_API_KEY',
+            'PLACEHOLDER_FOR_USERNAME',
+            'PLACEHOLDER_FOR_FIREBASE_PASSWORD',
+            'PLACEHOLDER_FOR_TTS'
+        ];
+        for (const p of placeholders) {
+            const e = document.getElementById(p);
+            if (localStorage[p])
+                e.value = localStorage[p];
+            e.addEventListener('change', function () { console.log(p, e); localStorage[p] = e.value; });
+        }
+    }
+    onConnect() {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (this.port !== null) {
+                yield this.port.disconnect();
+                this.port = null;
+                this.connect.innerText = 'Select device';
+                this.reset.style.display = 'none';
+            }
+            else {
+                try {
+                    const p = yield navigator.serial.requestPort();
+                    console.log(p);
+                    this.port = new PortController(p, this);
+                    yield this.port.connect(DEFAULT_BAUD);
+                    this.connect.innerText = 'Disconnect';
+                    this.reset.style.display = 'inline';
+                }
+                catch (err) {
+                    console.log('Port selection failed: ', err);
+                }
+            }
+        });
+    }
+    onReset() {
+        return __awaiter(this, void 0, void 0, function* () {
+            terminal.print('reset');
+            yield this.port.resetPulse();
+        });
+    }
+    receive(data) {
+        //inputBuffer.push(...value);
+        for (let i = 0; i < data.length; ++i) {
+            // Parse the value.
+            if (this.inFrame) {
+                if (data[i] == 0xc0) {
+                    this.inFrame = false;
+                    if (this.loader == null) {
+                        console.log('Received unexpected frame', data);
+                    }
+                    else {
+                        this.loader.receiveFrame(this.frame.unframed());
+                    }
+                }
+                else {
+                    this.frame.u8(data[i]);
+                }
+            }
+            else if (data[i] == 0xc0) {
+                // This may be the beginning of a framed packet.
+                this.inFrame = true;
+                this.frame.clear();
+            }
+            else if (data[i] == 13) {
+                const str = this.decoder.decode(this.frame.get());
+                terminal.write(str);
+                this.frame.clear();
+                if (str == 'waiting for download') {
+                    this.load();
+                }
+            }
+            else if (data[i] != 10) {
+                this.frame.u8(data[i]);
+            }
+        }
+    }
+    load() {
+        return __awaiter(this, void 0, void 0, function* () {
+            console.log('Starting sync');
+            const image = new ESPImage();
+            yield image.load();
+            this.loader = new ESPLoader(this.port, image);
+            yield this.loader.sync();
+        });
+    }
+}
+window.addEventListener('load', () => new Controller());
+//# sourceMappingURL=main.js.map
