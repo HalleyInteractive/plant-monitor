@@ -128,7 +128,7 @@ class ESPImage {
   async load() {
     this.partitions.push(new Partition(0x8000, 'bin/partition-table.bin'));
     this.partitions.push(new Partition(0x1000, 'bin/bootloader.bin'));
-    this.partitions.push(new Partition(0x10000, 'bin/plant-monitor.ino.bin'));
+    this.partitions.push(new Partition(0x10000, 'bin/simple.bin'));
   
     for (let i = 0; i < this.partitions.length; ++i) {
       await this.partitions[i].load();
