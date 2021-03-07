@@ -91,7 +91,7 @@ void setup() {
 
   setLEDColor(BLUE);
   
-  WiFi.begin(SSID, FIREBASE_PASSWORD);
+  WiFi.begin(SSID, WIFI_PASSWORD);
  
   while (WiFi.status() != WL_CONNECTED) {
       delay(1000);
