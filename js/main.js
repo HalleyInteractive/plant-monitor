@@ -636,8 +636,8 @@ class Controller {
             document.getElementById('nowebserial').style.display = 'none';
         }
         const placeholders = [
-            'PLACEHOLDER_FOR_SSID',
-            'PLACEHOLDER_FOR_PASSWORD',
+            'PLACEHOLDER_FOR_WIFI_SSID',
+            'PLACEHOLDER_FOR_WIFI_PASSWORD',
             'PLACEHOLDER_FOR_DATABASE_URL',
             'PLACEHOLDER_FOR_API_KEY',
             'PLACEHOLDER_FOR_USERNAME',
