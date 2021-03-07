@@ -29,12 +29,8 @@
  * https://github.com/HalleyInteractive/plant-monitor
  */
 
-#include <FS.h>
 #include <WiFi.h>
-#include <ArduinoJson.h>
-#include <SPIFFS.h>
-#include <FirebaseESP32.h>
-#include <DateTime.h>
+#include <Firebase_ESP_Client.h>
 #include <ESPDateTime.h>
 
 #define LED_RED 12
@@ -70,13 +66,13 @@ struct SensorReading {
   int water;
 };
 
-const char* FIREBASE_DATABASE_URL = "PLACEHOLDER_FOR_DATABASE_URL*******************************************************************************************";
-const char* FIREBASE_API_KEY = "PLACEHOLDER_FOR_API_KEY************************************";
-const char* FIREBASE_USERNAME = "PLACEHOLDER_FOR_USERNAME***********************************";
-const char* FIREBASE_PASSWORD = "PLACEHOLDER_FOR_FIREBASE_PASSWORD**************************";
-const char* TTS = "PLACEHOLDER_FOR_TTS****************************************";
-const char* SSID = "PLACEHOLDER_FOR_SSID*********";
-const char* WIFI_PASSWORD = "PLACEHOLDER_FOR_PASSWORD***********************************";
+const char* FIREBASE_DATABASE_URL = "PLACEHOLDER_FOR_DATABASE_URL********************************************************************************************";
+const char* FIREBASE_API_KEY = "PLACEHOLDER_FOR_API_KEY*************************************";
+const char* FIREBASE_USERNAME = "PLACEHOLDER_FOR_USERNAME************************************";
+const char* FIREBASE_PASSWORD = "PLACEHOLDER_FOR_FIREBASE_PASSWORD***************************";
+const char* TTS = "PLACEHOLDER_FOR_TTS*****************************************";
+const char* SSID = "PLACEHOLDER_FOR_WIFI_SSID*****";
+const char* WIFI_PASSWORD = "PLACEHOLDER_FOR_WIFI_PASSWORD*******************************";
 
 /**
  * Setup WifiManager and components.
@@ -138,11 +134,11 @@ void setup() {
     int currentTimestamp = DateTime.now();
     
     String uuid = getUUID();
-  
-    Firebase.setMaxRetry(firebaseData, 3);
-    Firebase.setMaxErrorQueue(firebaseData, 30);
-    Firebase.setReadTimeout(firebaseData, 1000 * 60 * 10);
-    Firebase.enableClassicRequest(firebaseData, true);
+
+    Firebase.RTDB.setMaxRetry(&firebaseData, 3);
+    Firebase.RTDB.setMaxErrorQueue(&firebaseData, 30);
+    Firebase.RTDB.setReadTimeout(&firebaseData, 1000 * 60 * 10);
+    Firebase.RTDB.enableClassicRequest(&firebaseData, true);
     
     sendSensorDataToFirestore(reading, currentTimestamp);
   
@@ -251,8 +247,11 @@ void sendSensorDataToFirestore(SensorReading reading, int currentTimestamp) {
   sensorReading.set("water", reading.water);
   sensorReading.set("timestamp", currentTimestamp);
   
-  Firebase.updateNode(firebaseData, "plants/" + uuid + "/last_update/", sensorReading);
-  Firebase.setJSON(firebaseData, "plants/" + uuid + "/logs/" + String(currentTimestamp) +"/", sensorReading);
+  String lastUpdatePath = "plants/" + uuid + "/last_update/";
+  Firebase.RTDB.updateNode(&firebaseData, lastUpdatePath.c_str(), &sensorReading);
+
+  String logsPath = "plants/" + uuid + "/logs/" + String(currentTimestamp) +"/";
+  Firebase.RTDB.setJSON(&firebaseData, logsPath.c_str(), &sensorReading);
 }
 
 /**
@@ -272,12 +271,14 @@ void clearFireStoreLogs(String uuid, int currentTimestamp) {
   query.limitToFirst(50);
 
   FirebaseData logsData;
-  Firebase.setMaxRetry(logsData, 3);
-  Firebase.setMaxErrorQueue(logsData, 30);
-  Firebase.enableClassicRequest(logsData, true);
-  Firebase.setReadTimeout(logsData, 1000 * 60 * 10);
+  Firebase.RTDB.setMaxRetry(&logsData, 3);
+  Firebase.RTDB.setMaxErrorQueue(&logsData, 30);
+  Firebase.RTDB.enableClassicRequest(&logsData, true);
+  Firebase.RTDB.setReadTimeout(&logsData, 1000 * 60 * 10);
   
-  if(Firebase.getJSON(logsData, "plants/" + uuid + "/logs", query)) {
+  String path = "plants/" + uuid + "/logs";
+
+  if(Firebase.RTDB.getJSON(&logsData, path.c_str(), &query)) {
     FirebaseJson &oldLogs = logsData.jsonObject();
     size_t len = oldLogs.iteratorBegin();
     String key, value = "";
@@ -286,7 +287,8 @@ void clearFireStoreLogs(String uuid, int currentTimestamp) {
       oldLogs.iteratorGet(i, type, key, value);
       if(key != "water" && key != "light" && key != "timestamp") {
         Serial.println("DELETE: plants/" + uuid + "/logs/" + key);
-        Firebase.deleteNode(firebaseData, "plants/" + uuid + "/logs/" + key);
+        String node = "plants/" + uuid + "/logs/" + key;
+        Firebase.RTDB.deleteNode(&firebaseData, node.c_str());
       }
     }
     oldLogs.iteratorEnd();
@@ -305,7 +307,7 @@ void clearFireStoreLogs(String uuid, int currentTimestamp) {
  */
 void setIndexOnRules() {
   FirebaseData rulesData;
-  if(Firebase.getRules(rulesData)) {
+  if(Firebase.RTDB.getRules(&rulesData)) {
     
     FirebaseJson &json = rulesData.jsonObject();
     bool setTimestampIndex = true;
@@ -323,7 +325,7 @@ void setIndexOnRules() {
       json.set("rules/plants/$uid/logs/.indexOn", "timestamp");
       String rules = "";
       json.toString(rules, true);
-      if(!Firebase.setRules(rulesData, rules)) {
+      if(!Firebase.RTDB.setRules(&rulesData, rules.c_str())) {
         Serial.println("Could not save Firebase Rules");
         Serial.println("Reason: " + rulesData.errorReason());
       }
