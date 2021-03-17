@@ -181,6 +181,7 @@ void setup() {
     int currentTimestamp = DateTime.now();
     
     String uuid = getUUID();
+    String mac = getMacAddress();
   
     Firebase.setMaxRetry(firebaseData, 3);
     Firebase.setMaxErrorQueue(firebaseData, 30);
@@ -191,7 +192,7 @@ void setup() {
   
     if(currentTimestamp > (lastFirebaseCleanup + 86400)) {
       setIndexOnRules();
-      clearFireStoreLogs(uuid, currentTimestamp);
+      clearFireStoreLogs(uuid, mac, currentTimestamp);
     }
     
     setLEDColor(OFF);
@@ -341,20 +342,21 @@ void sendSensorDataToFirestore(SensorReading reading, int currentTimestamp) {
   setLEDColor(YELLOW);
 
   String uuid = getUUID();
+  String mac = getMacAddress();
   
   FirebaseJson sensorReading;
   sensorReading.set("light", reading.light);
   sensorReading.set("water", reading.water);
   sensorReading.set("timestamp", currentTimestamp);
   
-  Firebase.updateNode(firebaseData, "plants/" + uuid + "/last_update/", sensorReading);
-  Firebase.setJSON(firebaseData, "plants/" + uuid + "/logs/" + String(currentTimestamp) +"/", sensorReading);
+  Firebase.updateNode(firebaseData, uuid + "/plants/" + mac + "/last_update/", sensorReading);
+  Firebase.setJSON(firebaseData, uuid + "/plants/" + mac + "/logs/" + String(currentTimestamp) +"/", sensorReading);
 }
 
 /**
  * Deletes all logs for this device older then 24H.
  */
-void clearFireStoreLogs(String uuid, int currentTimestamp) {
+void clearFireStoreLogs(String uuid, String mac, int currentTimestamp) {
   Serial.println("Clean up Firestore logs...");
   lastFirebaseCleanup = currentTimestamp;
   int deleteUntil = (currentTimestamp - 86400);
@@ -373,7 +375,7 @@ void clearFireStoreLogs(String uuid, int currentTimestamp) {
   Firebase.enableClassicRequest(logsData, true);
   Firebase.setReadTimeout(logsData, 1000 * 60 * 10);
   
-  if(Firebase.getJSON(logsData, "plants/" + uuid + "/logs", query)) {
+  if(Firebase.getJSON(logsData, uuid + "/plants/" + mac + "/logs", query)) {
     FirebaseJson &oldLogs = logsData.jsonObject();
     size_t len = oldLogs.iteratorBegin();
     String key, value = "";
@@ -381,8 +383,8 @@ void clearFireStoreLogs(String uuid, int currentTimestamp) {
     for(size_t i = 0; i < len; i++) {
       oldLogs.iteratorGet(i, type, key, value);
       if(key != "water" && key != "light" && key != "timestamp") {
-        Serial.println("DELETE: plants/" + uuid + "/logs/" + key);
-        Firebase.deleteNode(firebaseData, "plants/" + uuid + "/logs/" + key);
+        Serial.println("DELETE: " + uuid + "/plants/" + mac + "/logs/" + key);
+        Firebase.deleteNode(firebaseData, uuid + "/plants/" + mac + "/logs/" + key);
       }
     }
     oldLogs.iteratorEnd();
@@ -406,7 +408,7 @@ void setIndexOnRules() {
     FirebaseJson &json = rulesData.jsonObject();
     bool setTimestampIndex = true;
     FirebaseJsonData timestampIndex;
-    json.get(timestampIndex, "rules/plants/$uid/logs/.indexOn");
+    json.get(timestampIndex, "rules/$uid/plants/$mac/logs/.indexOn");
     if(timestampIndex.success) {
       if(timestampIndex.stringValue == "timestamp") {
         Serial.println("Timestamp index in place");
@@ -416,7 +418,7 @@ void setIndexOnRules() {
 
     if(setTimestampIndex) {
       Serial.println("Timestamp index not found, adding it to the rules");
-      json.set("rules/plants/$uid/logs/.indexOn", "timestamp");
+      json.set("rules/$uid/plants/$mac/logs/.indexOn", "timestamp");
       String rules = "";
       json.toString(rules, true);
       if(!Firebase.setRules(rulesData, rules)) {
@@ -437,6 +439,24 @@ void setIndexOnRules() {
  */
 String getUUID() {
   return firebaseAuth.token.uid.c_str();
+}
+
+/**
+ * Returns string of the WiFi mac address bytes.
+ * @return String of WiFi mac address.
+ */
+String getMacAddress() {
+  byte mac[6];
+  WiFi.macAddress(mac);
+  String macStr = 
+    "mac" + 
+    String(mac[0], HEX) + 
+    String(mac[1], HEX) + 
+    String(mac[2], HEX) + 
+    String(mac[3], HEX) + 
+    String(mac[4], HEX) + 
+    String(mac[5], HEX);
+  return macStr;
 }
 
 /**
