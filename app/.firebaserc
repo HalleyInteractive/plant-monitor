@@ -1,0 +1,11 @@
+{
+  "targets": {
+    "plant-monitor-niels": {
+      "hosting": {
+        "plant-monitor": [
+          "plant-monitor-niels"
+        ]
+      }
+    }
+  }
+}
