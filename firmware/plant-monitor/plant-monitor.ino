@@ -237,8 +237,8 @@ void saveConfigCallback () {
 void readConfig(){
   // SPIFFS.format(); // Clean FS
   if (SPIFFS.begin(true)) {
-    if (SPIFFS.exists("/config.json")) {
-      File configFile = SPIFFS.open("/config.json", "r");
+    if (SPIFFS.exists("/happy_plant.json")) {
+      File configFile = SPIFFS.open("/happy_plant.json", "r");
       if (configFile) {
         size_t size = configFile.size();
         std::unique_ptr<char[]> buf(new char[size]);
@@ -270,7 +270,7 @@ void saveConfig() {
     json["password"] = firebaseAuth.user.password;
     json["tts"] = timeToSleep;
 
-    File configFile = SPIFFS.open("/config.json", "w");
+    File configFile = SPIFFS.open("/happy_plant.json", "w");
     if (!configFile) {
       Serial.println("Failed to open config file for writing");
     }
