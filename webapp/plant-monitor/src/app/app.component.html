@@ -1,0 +1,14 @@
+<mat-toolbar color="primary" class="mat-elevation-z6 main-toolbar">
+  <button mat-icon-button class="menu-icon" aria-label="Menu">
+    <mat-icon>menu</mat-icon>
+  </button>
+  <span>Plant Monitor</span>
+  <span class="navbar-spacer"></span>
+  <button mat-raised-button color="accent" *ngIf="auth.user | async as user;" (click)="logout()">
+    Logout
+  </button>
+  <button mat-raised-button >
+    GitHub
+  </button>
+</mat-toolbar>
+<router-outlet></router-outlet>

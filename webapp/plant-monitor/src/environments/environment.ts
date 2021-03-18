@@ -5,13 +5,13 @@
 export const environment = {
   production: false,
   firebase: {
-    projectId: "plant-monitor-niels",
-    appId: "1:672798608724:web:06541c84dd013aeaea8cc1",
-    databaseURL: "https://plant-monitor-niels-default-rtdb.europe-west1.firebasedatabase.app",
-    storageBucket: "plant-monitor-niels.appspot.com",
-    apiKey: "AIzaSyCMcN30nQendt6Ve87Vx8UzZ0ivC-Hl-jA",
-    authDomain: "plant-monitor-niels.firebaseapp.com",
-    messagingSenderId: "672798608724"
+    apiKey: "AIzaSyD_JE_Iyh00ElVSGJHCm0-9B3l4H9fLnZc",
+    authDomain: "happy-plant-17512.firebaseapp.com",
+    databaseURL: "https://happy-plant-17512-default-rtdb.firebaseio.com",
+    projectId: "happy-plant-17512",
+    storageBucket: "happy-plant-17512.appspot.com",
+    messagingSenderId: "1039462456768",
+    appId: "1:1039462456768:web:c0a4ffd9b310f454a37c25"
   }
 };
 

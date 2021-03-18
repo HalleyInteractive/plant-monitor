@@ -1,0 +1,3 @@
+<p>plant-monitor-dashboard works!</p>
+<h1 *ngIf="ready">{{(plant$ | async)?.last_update | json}}</h1>
+<app-donut donutValue="{{(plant$ | async)?.last_update?.light}}"></app-donut>

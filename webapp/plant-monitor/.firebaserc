@@ -1,9 +1,9 @@
 {
   "targets": {
-    "plant-monitor-niels": {
+    "happy-plant-17512": {
       "hosting": {
         "plant-monitor": [
-          "plant-monitor-niels"
+          "happy-plant-17512"
         ]
       }
     }
