@@ -7,6 +7,7 @@
       <a 
         mat-list-item 
         *ngFor="let plant of plants | keyvalue" 
+        [ngClass]="{activePlant: plant.key === activePlant}"
         (click)="activatePlant(plant.key)">
         {{plant.key}}
       </a>

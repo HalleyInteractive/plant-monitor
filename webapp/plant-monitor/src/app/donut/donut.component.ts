@@ -1,5 +1,5 @@
 import { Component, OnInit, Input } from '@angular/core';
-import { ChartType } from 'chart.js';
+import { ChartType, ChartOptions} from 'chart.js';
 import { MultiDataSet, Label, Color } from 'ng2-charts';
 
 @Component({
@@ -10,33 +10,37 @@ import { MultiDataSet, Label, Color } from 'ng2-charts';
 export class DonutComponent implements OnInit {
 
   @Input() public donutColor: string;
-  public donutColorRest:string;
   public doughnutChartColors: Color[];
-  public doughnutChartLabels: Label[] = ['Download Sales'];
-  public doughnutChartData: MultiDataSet = [
-    [0, 0]
-  ];
-  public doughnutChartType: ChartType = 'doughnut';
+  public doughnutChartLabels: Label[] = [];
+  public doughnutChartData: MultiDataSet = [[0, 0]];
+  public chartOptions: ChartOptions = {
+    tooltips: {
+      enabled: false
+    },
+    responsive: true
+  }
 
-  private test:Color;
-  private test2:Color;
-  constructor() { 
-    this.doughnutChartColors = [this.test, this.test2];
-    this.donutColor = "#FF0000";
-    this.donutColorRest = "#00FF00";
+  constructor() {
+    
   }
 
   @Input()
   set donutValue(value:number) {
     if(value !== null) {
-      console.log('set donut value', value);
-      this.doughnutChartData = [
-        [Math.min(100, value), 100-Math.max(0, value)]
-      ];
-      console.log(this.doughnutChartData)
+      const percentage = Math.round(this.mapToRange(value, 0, 4095, 0, 100));
+      const remaining = 100 - percentage;
+      this.doughnutChartData = [[percentage, remaining]];
     }
   }
+
+  private mapToRange(value, inMin, inMax, outMin, outMax):number {
+    return (value - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
+  }
+
   ngOnInit(): void {
+    this.doughnutChartColors = [
+      {backgroundColor:[this.donutColor, 'rgba(219, 219, 219, 1)']
+    }];
   }
 
 }

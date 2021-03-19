@@ -1,14 +1,10 @@
-<div>
-  <div>
-    <div style="display: block">
+<mat-card>
       <canvas baseChart
         [data]="doughnutChartData"
         [labels]="doughnutChartLabels"
+        [options]="chartOptions"
         [legend]=false
         [colors]="doughnutChartColors"
-        [chartType]="doughnutChartType">
+        chartType="doughnut">
       </canvas>
-    </div>
-  </div>
-</div>
-<h1>{{doughnutChartData}}</h1>
+</mat-card>

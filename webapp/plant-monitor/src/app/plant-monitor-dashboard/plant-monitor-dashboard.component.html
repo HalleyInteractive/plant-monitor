@@ -1,3 +1,20 @@
-<p>plant-monitor-dashboard works!</p>
-<h1 *ngIf="ready">{{(plant$ | async)?.last_update | json}}</h1>
-<app-donut donutValue="{{(plant$ | async)?.last_update?.light}}"></app-donut>
+<!-- <h1 *ngIf="ready">{{(plant$ | async)?.last_update | json}}</h1> -->
+<div *ngIf="ready">
+  <mat-grid-list cols="2">
+    <mat-grid-tile colspan="2">
+      <mat-card>Last Updated: </mat-card>
+    </mat-grid-tile>
+    <mat-grid-tile>
+      <app-donut 
+        donutValue="{{(plant$ | async)?.last_update?.light}}" 
+        donutColor="rgba(252, 239, 93, 1)">
+      </app-donut>
+    </mat-grid-tile>
+    <mat-grid-tile>
+      <app-donut 
+      donutValue="{{(plant$ | async)?.last_update?.water}}" 
+      donutColor="rgba(62, 192, 247, 1)">
+    </app-donut>
+    </mat-grid-tile>
+  </mat-grid-list>
+</div>

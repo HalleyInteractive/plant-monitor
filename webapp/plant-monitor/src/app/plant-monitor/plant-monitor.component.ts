@@ -28,6 +28,7 @@ export class PlantMonitorComponent implements OnInit {
       this.user = user.uid;
       db.list(`${this.user}/plants`).query.once("value").then(data => {
         this.plants = data.val();
+        this.activePlant = Object.keys(this.plants)[0];
       });
    });
   }
