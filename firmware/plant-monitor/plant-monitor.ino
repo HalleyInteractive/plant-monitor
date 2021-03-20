@@ -118,7 +118,7 @@ void setup() {
   print_wakeup_reason();
   esp_sleep_wakeup_cause_t wakeup_reason;
   wakeup_reason = esp_sleep_get_wakeup_cause();
-  wifiManager.setConfigPortalTimeout(180);
+  wifiManager.setConfigPortalTimeout(60 * 5);
 
   if(wakeup_reason == 1 || wakeup_reason == 2) {
     // If woken up by external interrupt signal we start the config portal.
