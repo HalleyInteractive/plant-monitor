@@ -141,12 +141,6 @@ void setup() {
     Firebase.RTDB.enableClassicRequest(&firebaseData, true);
     
     sendSensorDataToFirestore(reading, currentTimestamp);
-  
-    if(currentTimestamp > (lastFirebaseCleanup + 86400)) {
-      setIndexOnRules();
-      clearFireStoreLogs(uuid, currentTimestamp);
-    }
-    
     setLEDColor(OFF);
     
     if(DEBUG_SENSORS == false) {
@@ -252,89 +246,6 @@ void sendSensorDataToFirestore(SensorReading reading, int currentTimestamp) {
 
   String logsPath = "plants/" + uuid + "/logs/" + String(currentTimestamp) +"/";
   Firebase.RTDB.setJSON(&firebaseData, logsPath.c_str(), &sensorReading);
-}
-
-/**
- * Deletes all logs for this device older then 24H.
- */
-void clearFireStoreLogs(String uuid, int currentTimestamp) {
-  Serial.println("Clean up Firestore logs...");
-  lastFirebaseCleanup = currentTimestamp;
-  int deleteUntil = (currentTimestamp - 86400);
-  Serial.print("DELETE ALL UNTIL: ");
-  Serial.println(deleteUntil);
-  
-  QueryFilter query;
-  query.orderBy("timestamp");
-  query.startAt(0);
-  query.endAt(deleteUntil);
-  query.limitToFirst(50);
-
-  FirebaseData logsData;
-  Firebase.RTDB.setMaxRetry(&logsData, 3);
-  Firebase.RTDB.setMaxErrorQueue(&logsData, 30);
-  Firebase.RTDB.enableClassicRequest(&logsData, true);
-  Firebase.RTDB.setReadTimeout(&logsData, 1000 * 60 * 10);
-  
-  String path = "plants/" + uuid + "/logs";
-
-  if(Firebase.RTDB.getJSON(&logsData, path.c_str(), &query)) {
-    FirebaseJson &oldLogs = logsData.jsonObject();
-    size_t len = oldLogs.iteratorBegin();
-    String key, value = "";
-    int type = 0;
-    for(size_t i = 0; i < len; i++) {
-      oldLogs.iteratorGet(i, type, key, value);
-      if(key != "water" && key != "light" && key != "timestamp") {
-        Serial.println("DELETE: plants/" + uuid + "/logs/" + key);
-        String node = "plants/" + uuid + "/logs/" + key;
-        Firebase.RTDB.deleteNode(&firebaseData, node.c_str());
-      }
-    }
-    oldLogs.iteratorEnd();
-    if(len >= 50) {
-      lastFirebaseCleanup = 0;
-    }
-  } else {
-    Serial.println(logsData.errorReason());
-  }
-  query.clear();
-}
-
-/** 
- * Checks if rules have .indexOn timestamp for all plants.
- * If not this rule will be added.
- */
-void setIndexOnRules() {
-  FirebaseData rulesData;
-  if(Firebase.RTDB.getRules(&rulesData)) {
-    
-    FirebaseJson &json = rulesData.jsonObject();
-    bool setTimestampIndex = true;
-    FirebaseJsonData timestampIndex;
-    json.get(timestampIndex, "rules/plants/$uid/logs/.indexOn");
-    if(timestampIndex.success) {
-      if(timestampIndex.stringValue == "timestamp") {
-        Serial.println("Timestamp index in place");
-        setTimestampIndex = false;
-      }
-    }
-
-    if(setTimestampIndex) {
-      Serial.println("Timestamp index not found, adding it to the rules");
-      json.set("rules/plants/$uid/logs/.indexOn", "timestamp");
-      String rules = "";
-      json.toString(rules, true);
-      if(!Firebase.RTDB.setRules(&rulesData, rules.c_str())) {
-        Serial.println("Could not save Firebase Rules");
-        Serial.println("Reason: " + rulesData.errorReason());
-      }
-    }
-    
-  } else {
-    Serial.println("Could not load Firebase Rules");
-    Serial.println("Reason: " + rulesData.errorReason());
-  }
 }
 
 /**
