@@ -1,8 +1,14 @@
 <mat-toolbar color="primary" class="mat-elevation-z6 main-toolbar">
-  <button mat-icon-button class="menu-icon" aria-label="Menu">
-    <mat-icon>menu</mat-icon>
+  <button mat-button>
+    <span class="material-icons">local_florist</span>
+    Dashboard
   </button>
-  <span>Plant Monitor</span>
+  <button mat-button>
+    <span class="material-icons">
+      cable
+    </span>
+    Programmer
+  </button>
   <span class="navbar-spacer"></span>
   <button mat-raised-button color="accent" *ngIf="auth.user | async as user;" (click)="logout()">
     Logout

@@ -1,8 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { AngularFireAuth } from '@angular/fire/auth';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import firebase from 'firebase/app';
 import { Router } from '@angular/router';
+import { FormControl, FormGroup } from '@angular/forms';
 
 @Component({
   selector: 'app-login',
@@ -12,23 +12,19 @@ import { Router } from '@angular/router';
 export class LoginComponent implements OnInit {
 
   hide = true;
-  username = '';
-  password = '';
+  loginForm = new FormGroup ({ 
+    username: new FormControl(),
+    password: new FormControl()
+  });
 
   constructor(public auth: AngularFireAuth, private _snackBar: MatSnackBar, private router: Router) { }
 
   ngOnInit(): void {}
 
-  updateUsername(value):void {
-    this.username = value;
-  }
-
-  updatePassword(value):void {
-    this.password = value;
-  }
-
   login():void {
-    this.auth.signInWithEmailAndPassword(this.username, this.password)
+    const credentials = this.loginForm.value;
+    this.auth.signInWithEmailAndPassword(credentials.username, 
+      credentials.password)
     .then(() => {
       this.router.navigate(['']);
     })

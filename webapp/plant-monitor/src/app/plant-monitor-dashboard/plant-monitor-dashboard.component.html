@@ -2,7 +2,7 @@
 <div *ngIf="ready">
   <mat-grid-list cols="2">
     <mat-grid-tile colspan="2">
-      <mat-card>Last Updated: </mat-card>
+      <mat-card>Last Updated: {{plant$ | async}}?.last_update?.timestamp | datecd </mat-card>
     </mat-grid-tile>
     <mat-grid-tile>
       <app-donut 

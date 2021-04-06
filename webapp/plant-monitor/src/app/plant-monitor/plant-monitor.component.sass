@@ -1,9 +1,20 @@
 @import '~@angular/material/theming'
 @include mat-core()
 
-.sidenav
-  padding-top:80px
-  width: 200px
+$app-primary: mat-palette($mat-purple)
+
+.plant-monitor-header
+  height: 80px
+  z-index: 2
+  h1
+    padding-left: 20px
 
 .activePlant
-  background-color: #7900db
+    background-color: mat-color($app-primary)
+
+.sidenav-container
+  flex: 1
+
+.plant-monitor-container
+  display: flex
+  flex-direction: column

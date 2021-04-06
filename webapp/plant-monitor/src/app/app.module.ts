@@ -11,6 +11,7 @@ import { LoginComponent } from './login/login.component';
 import { MatCardModule } from '@angular/material/card';
 import { MatGridListModule } from '@angular/material/grid-list';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { ReactiveFormsModule } from '@angular/forms';
 import { MatInputModule } from '@angular/material/input';
 import { AngularFireModule } from '@angular/fire';
 import { environment } from '../environments/environment';
@@ -47,7 +48,8 @@ import { DonutComponent } from './donut/donut.component';
     AngularFireModule.initializeApp(environment.firebase),
     LayoutModule,
     MatListModule,
-    ChartsModule
+    ChartsModule,
+    ReactiveFormsModule
   ],
   providers: [],
   bootstrap: [AppComponent]

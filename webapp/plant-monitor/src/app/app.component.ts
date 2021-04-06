@@ -13,7 +13,8 @@ export class AppComponent {
   }
 
   logout() {
-    this.auth.signOut();
-    this.router.navigate(['login']);
+    this.auth.signOut().then(() => {
+      this.router.navigate(['login']);
+    });
   }
 }

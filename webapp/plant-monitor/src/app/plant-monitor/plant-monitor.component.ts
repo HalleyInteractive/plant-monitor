@@ -23,11 +23,16 @@ export class PlantMonitorComponent implements OnInit {
       shareReplay()
     );
 
-  constructor(private breakpointObserver: BreakpointObserver, public auth: AngularFireAuth, db: AngularFireDatabase) {
+  constructor(private breakpointObserver: BreakpointObserver, 
+    public auth: AngularFireAuth, db: AngularFireDatabase) {
     this.auth.currentUser.then(user => {
+      console.log(user);
       this.user = user.uid;
+      console.log(`Getting path: ${this.user}/plants`)
       db.list(`${this.user}/plants`).query.once("value").then(data => {
+        console.log(data.val());
         this.plants = data.val();
+        console.log(Object.keys(this.plants)[0]);
         this.activePlant = Object.keys(this.plants)[0];
       });
    });
