@@ -35,3 +35,7 @@
 /schematics/*-bak
 *.log
 *.cache
+
+node_modules
+webapp/plant-monitor/node_modules
+webapp/plant-monitor/node_modules/.bin/
