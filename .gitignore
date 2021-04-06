@@ -39,3 +39,6 @@
 node_modules
 webapp/plant-monitor/node_modules
 webapp/plant-monitor/node_modules/.bin/
+build
+
+.DS_Store

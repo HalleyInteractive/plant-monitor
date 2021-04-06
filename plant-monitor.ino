@@ -21,7 +21,7 @@
  * record the amount of sunlight and water.
  * 
  * The circuit:
- * - ESP8266
+ * - ESP32
  * - LRD
  * - LED
  * - Capacitive Soil Sensor
@@ -29,13 +29,8 @@
  * https://github.com/HalleyInteractive/plant-monitor
  */
 
-#include <EEPROM.h>
 #include <WiFi.h>
-#include <DNSServer.h>
-#include <WebServer.h>
-#include <WiFiManager.h>
-#include <FirebaseESP32.h>
-#include <DateTime.h>
+#include <Firebase_ESP_Client.h>
 #include <ESPDateTime.h>
 
 #define LED_RED 12
@@ -48,9 +43,13 @@
 #define CONFIG_PORTAL_GPIO GPIO_NUM_33
 
 FirebaseData firebaseData;
+FirebaseAuth firebaseAuth;
+FirebaseConfig firebaseConfig;
+
 bool shouldSaveConfig = false;
 static RTC_NOINIT_ATTR int lastFirebaseCleanup;
 const bool DEBUG_SENSORS = false;
+String timeToSleep = "";
 
 enum LedColor {
   OFF,
@@ -67,12 +66,19 @@ struct SensorReading {
   int water;
 };
 
+const char* FIREBASE_DATABASE_URL = "PLACEHOLDER_FOR_DATABASE_URL*******************************************************************************************";
+const char* FIREBASE_API_KEY = "PLACEHOLDER_FOR_API_KEY************************************";
+const char* FIREBASE_USERNAME = "PLACEHOLDER_FOR_USERNAME***********************************";
+const char* FIREBASE_PASSWORD = "PLACEHOLDER_FOR_FIREBASE_PASSWORD**************************";
+const char* TTS = "PLACEHOLDER_FOR_TTS****************************************";
+const char* SSID = "PLACEHOLDER_FOR_WIFI_SSID****";
+const char* WIFI_PASSWORD = "PLACEHOLDER_FOR_WIFI_PASSWORD******************************";
+
 /**
  * Setup WifiManager and components.
  */
 void setup() {
   Serial.begin(115200);
-  EEPROM.begin(512);
 
   pinMode(LDR, INPUT);
   pinMode(CSMS, INPUT);
@@ -83,73 +89,31 @@ void setup() {
   pinMode(13, OUTPUT);
   digitalWrite(13, HIGH);
 
-  setLEDColor(YELLOW);
-
-  WiFiManager wifiManager;
-
-  char firebaseProject[64] = "Firebase Project ID";
-  char firebaseSecret[64] = "Firebase Secret";
-  char timeToSleep[16] = "30";
+  setLEDColor(BLUE);
   
-  int pointer = 0x0F;
-  pointer = readFromEEPROM(firebaseProject, pointer, 64);
-  pointer = readFromEEPROM(firebaseSecret, pointer, 64);
-  pointer = readFromEEPROM(timeToSleep, pointer, 16);
-  
-//  wifiManager.resetSettings(); // Reset WiFi settings for debugging.
-  WiFiManagerParameter firebaseProjectParam("fbp", "Firebase Project", firebaseProject, 64);
-  wifiManager.addParameter(&firebaseProjectParam);
-
-  WiFiManagerParameter firebaseSecretParam("fbs", "Firebase Secret", firebaseSecret, 64);
-  wifiManager.addParameter(&firebaseSecretParam);
-
-  WiFiManagerParameter timeToSleepParam("tts", "Time to Sleep (Seconds)", timeToSleep, 16);
-  wifiManager.addParameter(&timeToSleepParam);
-  
-  wifiManager.setSaveConfigCallback(saveConfigCallback);
-
-  print_wakeup_reason();
-  esp_sleep_wakeup_cause_t wakeup_reason;
-  wakeup_reason = esp_sleep_get_wakeup_cause();
-
-  int tts = atoi(timeToSleep);
-  wifiManager.setConfigPortalTimeout(180);
-
-  if(wakeup_reason == 1 || wakeup_reason == 2) {
-    // If woken up by external interrupt signal we start the config portal.
-    setLEDColor(BLUE);
-    wifiManager.startConfigPortal("Plant", "TakeCareOfMe");
-  } else if (tts <= 0) {
-    Serial.println("Could not parse timeToSleep");
-    setLEDColor(MAGENTA);
-    wifiManager.startConfigPortal("Plant", "TakeCareOfMe");
-  } else {
-    wifiManager.autoConnect("Plant", "TakeCareOfMe");
+  WiFi.begin(SSID, WIFI_PASSWORD);
+ 
+  while (WiFi.status() != WL_CONNECTED) {
+      delay(1000);
+      Serial.println("Establishing connection to WiFi..");
   }
-  
-  setLEDColor(GREEN);
-  if(shouldSaveConfig) {
-    int pointer = 0x0F;
-    strcpy(firebaseProject, firebaseProjectParam.getValue());
-    pointer = writeToEEPROM(firebaseProject, pointer, 64);
-    strcpy(firebaseSecret, firebaseSecretParam.getValue());
-    pointer = writeToEEPROM(firebaseSecret, pointer, 64);
-    strcpy(timeToSleep, timeToSleepParam.getValue());
-    pointer = writeToEEPROM(timeToSleep, pointer, 16);
-    tts = atoi(timeToSleep);
-  }
+    
+  Serial.println("Connected to network");
 
-  Serial.print("Firebase Project: ");
-  Serial.println(firebaseProject);
-
-  Serial.print("Firebase Secret: ");
-  Serial.println(firebaseSecret);
-
-  Serial.print("Time to Sleep (Seconds): ");
-  Serial.println(timeToSleep);
-
-  Firebase.begin(firebaseProject, firebaseSecret);
+  firebaseConfig.host = FIREBASE_DATABASE_URL;
+  firebaseConfig.api_key = FIREBASE_API_KEY;
+  firebaseAuth.user.email = FIREBASE_USERNAME;
+  firebaseAuth.user.password = FIREBASE_PASSWORD;
+  Firebase.begin(&firebaseConfig, &firebaseAuth);
   Firebase.reconnectWiFi(true);
+
+  struct token_info_t info = Firebase.authTokenInfo();
+  if (info.status == token_status_error) {
+    Serial.printf("Token error: %s\n\n", getTokenError(info).c_str());
+    Serial.println("Error connecting to Firebase...");
+    delay(5000);
+    ESP.restart();
+  }
   
   SensorReading reading = readSensorData();
   Serial.print("SENSOR LIGHT: ");
@@ -163,18 +127,18 @@ void setup() {
   DateTime.begin();
   if(!DateTime.isTimeValid()) {
     Serial.println("Failed to get time from server.");
-    setESPSleepCycle(tts);
+    setESPSleepCycle(atoi(TTS));
   } else {
     Serial.print("NOW: ");
     Serial.println(DateTime.now());
     int currentTimestamp = DateTime.now();
     
     String uuid = getUUID();
-  
-    Firebase.setMaxRetry(firebaseData, 3);
-    Firebase.setMaxErrorQueue(firebaseData, 30);
-    Firebase.setReadTimeout(firebaseData, 1000 * 60 * 10);
-    Firebase.enableClassicRequest(firebaseData, true);
+
+    Firebase.RTDB.setMaxRetry(&firebaseData, 3);
+    Firebase.RTDB.setMaxErrorQueue(&firebaseData, 30);
+    Firebase.RTDB.setReadTimeout(&firebaseData, 1000 * 60 * 10);
+    Firebase.RTDB.enableClassicRequest(&firebaseData, true);
     
     sendSensorDataToFirestore(reading, currentTimestamp);
   
@@ -186,11 +150,20 @@ void setup() {
     setLEDColor(OFF);
     
     if(DEBUG_SENSORS == false) {
-      setESPSleepCycle(tts);
+      setESPSleepCycle(atoi(TTS));
     } else {
       setLEDColor(YELLOW);
     }
   }
+}
+
+/* The helper function to get the token error string */
+String getTokenError(struct token_info_t info) {
+    String s = "code: ";
+    s += String(info.error.code);
+    s += ", message: ";
+    s += info.error.message.c_str();
+    return s;
 }
 
 /**
@@ -203,50 +176,6 @@ void setESPSleepCycle(int tts) {
   esp_sleep_enable_timer_wakeup(tts * uS_TO_S_FACTOR);
   Serial.println("Setup ESP32 to sleep for every " + String(tts) + " Seconds");
   esp_deep_sleep_start();
-}
-
-/**
- * Reads a char array from EEPROM.
- * @param param The parameter to write EEPROM data to.
- * @param start EEPROM memory location to start read from.
- * @param size Length of the parameter.
- * @return EEPROM pointer, start + size.
- */
-int readFromEEPROM(char *param, int start, int size) {
-  Serial.print("Reading from EEPROM: ");
-  for(int i = 0; i < size; i++) {
-    char chr = char(EEPROM.read(start+i));
-    Serial.print(chr);
-    param[i] = chr;
-  }
-  Serial.println(" from EEPROM");
-  return start + size;
-}
-
-/**
- * Writes a char array to EEPROM.
- * @param param The parameter to to store.
- * @param start EEPROM memory location to start writing at.
- * @param size Length of the parameter.
- * @return EEPROM pointer, start + size.
- */
-int writeToEEPROM(char *param, int start, int size) {
-  Serial.print("Writing '");
-  for(int i = 0; i < size; i++) {
-    Serial.print(param[i]);
-    EEPROM.write(start+i, param[i]);
-  }
-  Serial.println("' to EEPROM");
-  EEPROM.commit();
-  return start + size;
-}
-
-/**
- * Triggered by the WifiManager if config has changed and
- * we need to write parameters to EEPROM.
- */
-void saveConfigCallback () {
-  shouldSaveConfig = true;
 }
 
 /**
@@ -318,8 +247,11 @@ void sendSensorDataToFirestore(SensorReading reading, int currentTimestamp) {
   sensorReading.set("water", reading.water);
   sensorReading.set("timestamp", currentTimestamp);
   
-  Firebase.updateNode(firebaseData, "plants/" + uuid + "/last_update/", sensorReading);
-  Firebase.setJSON(firebaseData, "plants/" + uuid + "/logs/" + String(currentTimestamp) +"/", sensorReading);
+  String lastUpdatePath = "plants/" + uuid + "/last_update/";
+  Firebase.RTDB.updateNode(&firebaseData, lastUpdatePath.c_str(), &sensorReading);
+
+  String logsPath = "plants/" + uuid + "/logs/" + String(currentTimestamp) +"/";
+  Firebase.RTDB.setJSON(&firebaseData, logsPath.c_str(), &sensorReading);
 }
 
 /**
@@ -339,12 +271,14 @@ void clearFireStoreLogs(String uuid, int currentTimestamp) {
   query.limitToFirst(50);
 
   FirebaseData logsData;
-  Firebase.setMaxRetry(logsData, 3);
-  Firebase.setMaxErrorQueue(logsData, 30);
-  Firebase.enableClassicRequest(logsData, true);
-  Firebase.setReadTimeout(logsData, 1000 * 60 * 10);
+  Firebase.RTDB.setMaxRetry(&logsData, 3);
+  Firebase.RTDB.setMaxErrorQueue(&logsData, 30);
+  Firebase.RTDB.enableClassicRequest(&logsData, true);
+  Firebase.RTDB.setReadTimeout(&logsData, 1000 * 60 * 10);
   
-  if(Firebase.getJSON(logsData, "plants/" + uuid + "/logs", query)) {
+  String path = "plants/" + uuid + "/logs";
+
+  if(Firebase.RTDB.getJSON(&logsData, path.c_str(), &query)) {
     FirebaseJson &oldLogs = logsData.jsonObject();
     size_t len = oldLogs.iteratorBegin();
     String key, value = "";
@@ -353,7 +287,8 @@ void clearFireStoreLogs(String uuid, int currentTimestamp) {
       oldLogs.iteratorGet(i, type, key, value);
       if(key != "water" && key != "light" && key != "timestamp") {
         Serial.println("DELETE: plants/" + uuid + "/logs/" + key);
-        Firebase.deleteNode(firebaseData, "plants/" + uuid + "/logs/" + key);
+        String node = "plants/" + uuid + "/logs/" + key;
+        Firebase.RTDB.deleteNode(&firebaseData, node.c_str());
       }
     }
     oldLogs.iteratorEnd();
@@ -372,7 +307,7 @@ void clearFireStoreLogs(String uuid, int currentTimestamp) {
  */
 void setIndexOnRules() {
   FirebaseData rulesData;
-  if(Firebase.getRules(rulesData)) {
+  if(Firebase.RTDB.getRules(&rulesData)) {
     
     FirebaseJson &json = rulesData.jsonObject();
     bool setTimestampIndex = true;
@@ -390,7 +325,7 @@ void setIndexOnRules() {
       json.set("rules/plants/$uid/logs/.indexOn", "timestamp");
       String rules = "";
       json.toString(rules, true);
-      if(!Firebase.setRules(rulesData, rules)) {
+      if(!Firebase.RTDB.setRules(&rulesData, rules.c_str())) {
         Serial.println("Could not save Firebase Rules");
         Serial.println("Reason: " + rulesData.errorReason());
       }
@@ -403,22 +338,11 @@ void setIndexOnRules() {
 }
 
 /**
- * Returns string of the WiFi mac address
- * bytes.
- * @return String of WiFi mac address.
+ * Returns string authenticated Firebase User.
+ * @return String of authenticated user.
  */
 String getUUID() {
-  byte mac[6];
-  WiFi.macAddress(mac);
-  String uuid = 
-    "uuid" + 
-    String(mac[0], HEX) + 
-    String(mac[1], HEX) + 
-    String(mac[2], HEX) + 
-    String(mac[3], HEX) + 
-    String(mac[4], HEX) + 
-    String(mac[5], HEX);
-  return uuid;
+  return firebaseAuth.token.uid.c_str();
 }
 
 /**
