@@ -102,19 +102,31 @@ void setup() {
 
   firebaseConfig.host = FIREBASE_DATABASE_URL;
   firebaseConfig.api_key = FIREBASE_API_KEY;
+  firebaseConfig.token_status_callback = authTokenChangeHandler;
+
   firebaseAuth.user.email = FIREBASE_USERNAME;
   firebaseAuth.user.password = FIREBASE_PASSWORD;
+  
   Firebase.begin(&firebaseConfig, &firebaseAuth);
   Firebase.reconnectWiFi(true);
+}
 
-  struct token_info_t info = Firebase.authTokenInfo();
-  if (info.status == token_status_error) {
-    Serial.printf("Token error: %s\n\n", getTokenError(info).c_str());
+/**
+ * Firebase Auth Token Change Handler.
+ */
+void authTokenChangeHandler(struct token_info_t info) {
+  Serial.printf("Auth token changed %d\r\n", info.status);
+  if(info.status == token_status_ready) {
+    readAndStoreSensorData();
+  } else if (info.status == token_status_error) {
+    Serial.printf("Token error: %s\r\n\r\n", getTokenError(info).c_str());
     Serial.println("Error connecting to Firebase...");
-    delay(5000);
-    ESP.restart();
+    setESPSleepCycle(atoi(TTS));
   }
-  
+}
+
+
+void readAndStoreSensorData() {
   SensorReading reading = readSensorData();
   Serial.print("SENSOR LIGHT: ");
   Serial.println(reading.light);
@@ -235,16 +247,17 @@ void sendSensorDataToFirestore(SensorReading reading, int currentTimestamp) {
   setLEDColor(YELLOW);
 
   String uuid = getUUID();
+  String mac = getMacAddress();
   
   FirebaseJson sensorReading;
   sensorReading.set("light", reading.light);
   sensorReading.set("water", reading.water);
   sensorReading.set("timestamp", currentTimestamp);
   
-  String lastUpdatePath = "plants/" + uuid + "/last_update/";
+  String lastUpdatePath = uuid + "/plants/" + mac + "/last_update/";
   Firebase.RTDB.updateNode(&firebaseData, lastUpdatePath.c_str(), &sensorReading);
 
-  String logsPath = "plants/" + uuid + "/logs/" + String(currentTimestamp) +"/";
+  String logsPath = uuid + "/plants/" + mac + "/logs/" + String(currentTimestamp) + "/";
   Firebase.RTDB.setJSON(&firebaseData, logsPath.c_str(), &sensorReading);
 }
 
@@ -254,6 +267,24 @@ void sendSensorDataToFirestore(SensorReading reading, int currentTimestamp) {
  */
 String getUUID() {
   return firebaseAuth.token.uid.c_str();
+}
+
+/**
+ * Returns string of the WiFi mac address bytes.
+ * @return String of WiFi mac address.
+ */
+String getMacAddress() {
+  byte mac[6];
+  WiFi.macAddress(mac);
+  String macStr = 
+    "mac" + 
+    String(mac[0], HEX) + 
+    String(mac[1], HEX) + 
+    String(mac[2], HEX) + 
+    String(mac[3], HEX) + 
+    String(mac[4], HEX) + 
+    String(mac[5], HEX);
+  return macStr;
 }
 
 /**
