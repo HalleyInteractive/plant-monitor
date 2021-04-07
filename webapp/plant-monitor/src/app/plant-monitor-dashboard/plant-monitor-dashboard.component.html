@@ -1,20 +1,17 @@
 <!-- <h1 *ngIf="ready">{{(plant$ | async)?.last_update | json}}</h1> -->
-<div *ngIf="ready">
-  <mat-grid-list cols="2">
-    <mat-grid-tile colspan="2">
-      <mat-card>Last Updated: {{plant$ | async}}?.last_update?.timestamp | datecd </mat-card>
-    </mat-grid-tile>
-    <mat-grid-tile>
-      <app-donut 
-        donutValue="{{(plant$ | async)?.last_update?.light}}" 
-        donutColor="rgba(252, 239, 93, 1)">
-      </app-donut>
-    </mat-grid-tile>
-    <mat-grid-tile>
-      <app-donut 
-      donutValue="{{(plant$ | async)?.last_update?.water}}" 
-      donutColor="rgba(62, 192, 247, 1)">
-    </app-donut>
-    </mat-grid-tile>
-  </mat-grid-list>
+<div *ngIf="ready" class="plant-monitor-dashboard">
+  <app-donut
+    class="donut-water"
+    donutValue="{{ (lastStatus$ | async)?.water }}"
+    donutColor="rgba(62, 192, 247, 1)">
+  </app-donut>
+  <app-donut
+    class="donut-light"
+    donutValue="{{ (lastStatus$ | async)?.light }}"
+    donutColor="rgba(252, 239, 93, 1)">
+  </app-donut>
+  <app-line-chart
+    class="time-series"
+    [lineChartData]="logs">
+  </app-line-chart>
 </div>

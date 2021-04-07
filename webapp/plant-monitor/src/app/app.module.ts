@@ -23,6 +23,10 @@ import { MatListModule } from '@angular/material/list';
 import { PlantMonitorDashboardComponent } from './plant-monitor-dashboard/plant-monitor-dashboard.component';
 import { ChartsModule } from 'ng2-charts';
 import { DonutComponent } from './donut/donut.component';
+import { WebespComponent } from './webesp/webesp.component';
+import { WebespTerminalComponent } from './webesp-terminal/webesp-terminal.component';
+import { WebespConfigComponent } from './webesp-config/webesp-config.component';
+import { LineChartComponent } from './line-chart/line-chart.component';
 
 @NgModule({
   declarations: [
@@ -31,6 +35,10 @@ import { DonutComponent } from './donut/donut.component';
     PlantMonitorComponent,
     PlantMonitorDashboardComponent,
     DonutComponent,
+    WebespComponent,
+    WebespTerminalComponent,
+    WebespConfigComponent,
+    LineChartComponent,
   ],
   imports: [
     BrowserModule,

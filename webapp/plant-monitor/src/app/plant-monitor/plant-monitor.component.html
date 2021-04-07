@@ -5,7 +5,7 @@
     </button>
     <h1>Plant Monitor</h1>
   </mat-toolbar>
-  <mat-sidenav-container class="sidenav-container">
+  <mat-sidenav-container class="sidenav-container" autosize>
     <mat-sidenav #drawer class="sidenav" fixedInViewport fixedTopGap="136"
         [attr.role]="(isHandset$ | async) ? 'dialog' : 'navigation'"
         [mode]="(isHandset$ | async) ? 'over' : 'side'"

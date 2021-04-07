@@ -1,8 +1,9 @@
-import { Component, OnInit, Input } from '@angular/core';
+import { Component, OnInit, Input, ViewChild } from '@angular/core';
 import { AngularFirestore } from '@angular/fire/firestore';
 import { Observable } from 'rxjs';
 import { AngularFireDatabase } from '@angular/fire/database';
 import { AngularFireAuth } from '@angular/fire/auth';
+import { LineChartComponent } from './../line-chart/line-chart.component';
 
 interface PlantStatus {
   water: number;
@@ -12,7 +13,7 @@ interface PlantStatus {
 
 interface Plant {
   last_update:PlantStatus;
-  logs:PlantStatus[];
+  logs:{[key: string]:PlantStatus};
 }
 
 @Component({
@@ -27,7 +28,10 @@ export class PlantMonitorDashboardComponent implements OnInit {
   private userID: string;
   private db:AngularFireDatabase;
 
-  plant$: Observable<Plant>;
+  lastStatus$: Observable<PlantStatus>;
+  // logs$: Observable<{[key: string]:PlantStatus}>;
+  public logs: {[key: string]:PlantStatus};
+  @ViewChild(LineChartComponent) lineChart:LineChartComponent;
 
   constructor(public auth: AngularFireAuth, db: AngularFireDatabase) {
     this.db = db;
@@ -47,13 +51,28 @@ export class PlantMonitorDashboardComponent implements OnInit {
       this.plantID = plantID;
       if(this.userID) {
         this.ready = true;
+        if(this.lineChart) {
+          this.lineChart.clear();
+        }
         this.monitorPlant();
       }
     }
   }
 
   private monitorPlant() {
-    this.plant$ = this.db.object<Plant>(`${this.userID}/plants/${this.plantID}`).valueChanges();
+    this.lastStatus$ = this.db.object<PlantStatus>(`${this.userID}/plants/${this.plantID}/last_update`).valueChanges();
+    const logRef = this.db.list(`${this.userID}/plants/${this.plantID}/logs`);
+    logRef.query.orderByChild('timestamp').limitToLast(500).once("value").then(data => {
+      this.logs = data.val();
+    });
+    logRef.snapshotChanges(['child_added'])
+      .subscribe(actions => {
+        actions.forEach(action => {
+          console.log(action.type);
+          console.log(action.key);
+          console.log(action.payload.val());
+        });
+      });
   }
 
   ngOnInit(): void {
