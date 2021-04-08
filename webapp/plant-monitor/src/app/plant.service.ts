@@ -26,6 +26,12 @@ interface SensorConfig {
 interface SensorData {
   data: number[];
   label: string;
+  borderColor?: string
+  backgroundColor?: string;
+  pointBackgroundColor?: string;
+  pointBorderColor?: string;
+  pointHoverBackgroundColor?: string;
+  pointHoverBorderColor?: string;
 }
 
 @Injectable({
@@ -58,14 +64,15 @@ export class PlantService {
     this.sensorDataset = [{
       data:[],
       label: 'water'
-    },
-    {
+    },{
       data: [],
+      borderColor: "#e755ba",
       label: 'light'
     }];
     this.db = db;
     auth.currentUser.then(user => {
       this.userID = user.uid;
+      console.log(user);
       db.list(`${this.userID}/plants`).query.once("value").then(data => {
         this.plants = data.val();
         console.log(this.plants);
@@ -108,11 +115,23 @@ export class PlantService {
     this.logs = [];
     this.sensorDataset = [{
       data:[],
-      label: 'water'
+      label: 'water',
+      borderColor: "rgba(62, 192, 247, 1)",
+      backgroundColor: "rgba(62, 192, 247, 0.2)",
+      pointBackgroundColor: "rgba(62, 192, 247, 1)",
+      pointBorderColor: "rgba(62, 192, 247, 1)",
+      pointHoverBackgroundColor: "rgba(62, 192, 247, 1)",
+      pointHoverBorderColor: "rgba(62, 192, 247, 1)",
     },
     {
       data: [],
-      label: 'light'
+      label: 'light',
+      borderColor: "rgba(252, 239, 93, 1)",
+      backgroundColor: "rgba(252, 239, 93, 0.2)",
+      pointBackgroundColor: "rgba(252, 239, 93, 1)",
+      pointBorderColor: "rgba(252, 239, 93, 1)",
+      pointHoverBackgroundColor: "rgba(252, 239, 93, 1)",
+      pointHoverBorderColor: "rgba(252, 239, 93, 1)",
     }];
     this.timestampLogs = [];
   }

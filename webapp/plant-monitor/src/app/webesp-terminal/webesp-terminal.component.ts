@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { WebespTerminalService } from '../webesp-terminal.service';
 
 @Component({
   selector: 'app-webesp-terminal',
@@ -7,7 +8,10 @@ import { Component, OnInit } from '@angular/core';
 })
 export class WebespTerminalComponent implements OnInit {
 
-  constructor() { }
+  terminal:WebespTerminalService;
+  constructor(terminalService:WebespTerminalService) {
+    this.terminal = terminalService;
+  }
 
   ngOnInit(): void {
   }

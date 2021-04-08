@@ -1,6 +1,5 @@
-import { Component, OnInit, Input, ViewChild } from '@angular/core';
-import { LineChartComponent } from './../line-chart/line-chart.component';
-import { PlantService, PlantStatus } from '../plant.service';
+import { Component, OnInit } from '@angular/core';
+import { PlantService } from '../plant.service';
 
 @Component({
   selector: 'app-plant-monitor-dashboard',
@@ -9,12 +8,7 @@ import { PlantService, PlantStatus } from '../plant.service';
 })
 export class PlantMonitorDashboardComponent implements OnInit {
 
-  plantService:PlantService;
-
-  @ViewChild(LineChartComponent) lineChart:LineChartComponent;
-
-  constructor(plantService:PlantService) {
-    this.plantService = plantService;
+  constructor(public plantService:PlantService) {
   }
 
   ngOnInit(): void {

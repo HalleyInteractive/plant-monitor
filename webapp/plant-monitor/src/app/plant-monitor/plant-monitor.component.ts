@@ -12,15 +12,13 @@ import { PlantService } from '../plant.service';
 })
 export class PlantMonitorComponent implements OnInit {
 
-  plantService:PlantService;
   isHandset$: Observable<boolean> = this.breakpointObserver.observe(Breakpoints.Handset)
     .pipe(
       map(result => result.matches),
       shareReplay()
     );
 
-  constructor(private breakpointObserver: BreakpointObserver, plantService:PlantService) {
-    this.plantService = plantService;
+  constructor(private breakpointObserver: BreakpointObserver, public plantService:PlantService) {
   }
 
   ngOnInit(): void {

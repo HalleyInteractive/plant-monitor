@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { FormControl, FormGroup } from '@angular/forms';
+import { WebespConfigService } from '../webesp-config.service';
 
 @Component({
   selector: 'app-webesp-config',
@@ -8,19 +8,9 @@ import { FormControl, FormGroup } from '@angular/forms';
 })
 export class WebespConfigComponent implements OnInit {
 
-  hide = true;
-  espConfig = new FormGroup ({ 
-    wifiSSID: new FormControl(),
-    wifiPassword: new FormControl()
-  });
-
-  constructor() { }
+  constructor(public config:WebespConfigService) { }
 
   ngOnInit(): void {
-  }
-
-  save(): void {
-    
   }
 
 }

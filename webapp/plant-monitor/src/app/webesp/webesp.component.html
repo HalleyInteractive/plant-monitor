@@ -1,0 +1,16 @@
+<div *ngIf="serialAvailable" class="webesp-container">
+  <app-webesp-config></app-webesp-config>
+  <mat-card class="webesp-connection">
+    <button *ngIf="!port" mat-raised-button color="primary"(click)="onConnect()">Connect</button>
+    <button *ngIf="port && port.connected" mat-raised-button color="primary"(click)="onDisconnect()">Disconnect</button>
+    <button *ngIf="port && port.connected" mat-raised-button color="primary"(click)="onReset()">Reset / Flash</button>
+    <div *ngIf="loader">
+      <mat-progress-bar mode="determinate" [value]="loader.progress"></mat-progress-bar>
+      PROGRESS: {{loader.progress}}
+    </div>
+  </mat-card>
+  <mat-card>
+    <app-webesp-terminal></app-webesp-terminal>
+  </mat-card>
+</div>
+<div *ngIf="!serialAvailable">Serial NOT AVAILABLE</div>

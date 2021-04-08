@@ -13,10 +13,7 @@ interface Dataset {
 })
 export class LineChartComponent implements OnInit {
 
-  plantService:PlantService;
-
-  constructor(plantService:PlantService) {
-    this.plantService = plantService;
+  constructor(public plantService:PlantService) {
   }
 
   ngOnInit(): void {

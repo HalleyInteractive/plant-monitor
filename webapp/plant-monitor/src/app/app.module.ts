@@ -25,8 +25,10 @@ import { ChartsModule } from 'ng2-charts';
 import { DonutComponent } from './donut/donut.component';
 import { WebespComponent } from './webesp/webesp.component';
 import { WebespTerminalComponent } from './webesp-terminal/webesp-terminal.component';
-import { WebespConfigComponent } from './webesp-config/webesp-config.component';
 import { LineChartComponent } from './line-chart/line-chart.component';
+import { WebespConfigComponent } from './webesp-config/webesp-config.component';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatExpansionModule } from '@angular/material/expansion';
 
 @NgModule({
   declarations: [
@@ -37,8 +39,8 @@ import { LineChartComponent } from './line-chart/line-chart.component';
     DonutComponent,
     WebespComponent,
     WebespTerminalComponent,
-    WebespConfigComponent,
     LineChartComponent,
+    WebespConfigComponent,
   ],
   imports: [
     BrowserModule,
@@ -57,7 +59,9 @@ import { LineChartComponent } from './line-chart/line-chart.component';
     LayoutModule,
     MatListModule,
     ChartsModule,
-    ReactiveFormsModule
+    ReactiveFormsModule,
+    MatSlideToggleModule,
+    MatExpansionModule
   ],
   providers: [],
   bootstrap: [AppComponent]
