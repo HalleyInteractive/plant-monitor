@@ -1,1 +1,5 @@
-<span *ngFor="let logEntry of terminal.logs"><p [innerHtml]="logEntry"></p></span>
+<div *ngFor="let logEntry of terminal.logs">
+  <p>{{logEntry.value}}</p>
+  <mat-divider></mat-divider>
+  <br />
+</div>

@@ -1,5 +1,15 @@
 import { Injectable } from '@angular/core';
 
+enum LogOrigin {
+  WEB_ESP = 0,
+  ESP = 1
+}
+interface LogEntry {
+  timestamp: number;
+  origin: LogOrigin; 
+  value: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -11,7 +21,7 @@ export class WebespTerminalService {
     '[0;33m': '<span style="color:#cc0;">',
     '[0m': '</span>',
   }
-  logs:string[] = [];
+  logs:LogEntry[] = [];
 
   constructor() { }
 
@@ -30,12 +40,12 @@ export class WebespTerminalService {
         s += a[i];
       }
     }
-    this.logs.unshift(s);
+    this.logs.unshift({value: s, origin: LogOrigin.ESP, timestamp: new Date().getTime()});
     this.truncateTerminal();
   }
 
   print(s: string) {
-    this.logs.unshift('<span style="background-color:#444;border:1px solid #ccc; border-radius:3px;">'+ s + '</span>');
+    this.logs.unshift({value: s, origin: LogOrigin.WEB_ESP, timestamp: new Date().getTime()});
     this.truncateTerminal();
   }
 

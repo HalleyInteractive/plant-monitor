@@ -29,6 +29,7 @@ import { LineChartComponent } from './line-chart/line-chart.component';
 import { WebespConfigComponent } from './webesp-config/webesp-config.component';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatExpansionModule } from '@angular/material/expansion';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 
 @NgModule({
   declarations: [
@@ -61,7 +62,8 @@ import { MatExpansionModule } from '@angular/material/expansion';
     ChartsModule,
     ReactiveFormsModule,
     MatSlideToggleModule,
-    MatExpansionModule
+    MatExpansionModule,
+    MatProgressBarModule
   ],
   providers: [],
   bootstrap: [AppComponent]

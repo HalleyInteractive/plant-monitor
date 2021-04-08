@@ -20,10 +20,10 @@ export class WebespConfigService {
     firebaseHost: new FormControl('happy-plant-17512-default-rtdb.firebaseio.com'),
     firebaseAPIKey: new FormControl('AIzaSyD_JE_Iyh00ElVSGJHCm0-9B3l4H9fLnZc')
   });
+
   constructor() { }
 
   getConfig() {
-    console.log(this.espConfigForm.value);
     return this.espConfigForm.value;
   }
 

@@ -196,11 +196,9 @@ class Partition {
   async applyPatches() {
     const placeholderMappding = this.config.getPlaceholderMapping();
     if (this.placeholders.length == 0) return;
-    console.log(this.placeholders);
     for (let k in this.placeholders) {
       if(placeholderMappding.has(k)) {
         const placeholderData = placeholderMappding.get(k);
-        console.log(`Patching placeholder ${k} with ${placeholderData.value}, length: ${placeholderData.length}`);
         this.patch(this.placeholders[k], placeholderData.value, placeholderData.length);
       }
     }

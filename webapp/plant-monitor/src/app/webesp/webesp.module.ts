@@ -13,6 +13,7 @@ import { WebespConfigService } from '../webesp-config.service';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { WebespConfigComponent } from '../webesp-config/webesp-config.component';
 import { MatExpansionModule } from '@angular/material/expansion';
+import { MatDividerModule } from '@angular/material/divider';
 
 @NgModule({
   declarations: [
@@ -32,6 +33,7 @@ import { MatExpansionModule } from '@angular/material/expansion';
     MatIconModule,
     MatSlideToggleModule,
     MatExpansionModule,
+    MatDividerModule
   ]
 })
 export class WebespModule { }

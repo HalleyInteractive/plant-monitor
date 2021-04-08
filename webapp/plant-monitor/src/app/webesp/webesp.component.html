@@ -6,11 +6,11 @@
     <button *ngIf="port && port.connected" mat-raised-button color="primary"(click)="onReset()">Reset / Flash</button>
     <div *ngIf="loader">
       <mat-progress-bar mode="determinate" [value]="loader.progress"></mat-progress-bar>
-      PROGRESS: {{loader.progress}}
+      Flashing: {{loader.progress}} %
     </div>
   </mat-card>
   <mat-card>
     <app-webesp-terminal></app-webesp-terminal>
   </mat-card>
 </div>
-<div *ngIf="!serialAvailable">Serial NOT AVAILABLE</div>
+<div *ngIf="!serialAvailable">Serial not available, try the latest Chrome version.</div>
