@@ -13,15 +13,15 @@
       <mat-nav-list>
         <a 
           mat-list-item 
-          *ngFor="let plant of plants | keyvalue" 
-          [ngClass]="{activePlant: plant.key === activePlant}"
+          *ngFor="let plant of plantService.plants | keyvalue" 
+          [ngClass]="{activePlant: plant.key === plantService.activePlant}"
           (click)="activatePlant(plant.key)">
           {{plant.key}}
         </a>
       </mat-nav-list>
     </mat-sidenav>
     <mat-sidenav-content>
-      <app-plant-monitor-dashboard [activePlant]=activePlant></app-plant-monitor-dashboard>
+      <app-plant-monitor-dashboard></app-plant-monitor-dashboard>
     </mat-sidenav-content>
   </mat-sidenav-container>
 </div>

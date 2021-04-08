@@ -3,7 +3,7 @@
     baseChart
     class="chart chart-line"
     chartType="line"
-    [datasets]="chartData"
-    [labels]="chartLabels">
+    [datasets]="plantService.sensorDataset"
+    [labels]="plantService.timestampLogs">
   </canvas>
 </mat-card>
