@@ -1,0 +1,21 @@
+<h1 mat-dialog-title>Plant Settings</h1>
+<div mat-dialog-content>
+  <form [formGroup]="plantConfigForm" (ngSubmit)="onSaveClick()">
+    <p>
+      <mat-form-field class="form-field">
+        <mat-label>Plant Name</mat-label>
+        <input matInput formControlName="name">
+      </mat-form-field>
+    </p>
+    <p>
+      <mat-form-field class="form-field">
+        <mat-label>Time to Sleep</mat-label>
+        <input type="number" min="10" matInput formControlName="tts">
+      </mat-form-field>
+    </p>
+  </form>
+</div>
+<div mat-dialog-actions>
+  <button mat-button (click)="onCancelClick()">Cancel</button>
+  <button mat-button cdkFocusInitial (click)="onSaveClick()">Save</button>
+</div>

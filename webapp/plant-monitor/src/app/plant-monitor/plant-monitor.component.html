@@ -6,7 +6,7 @@
     <h1>Plant Monitor</h1>
   </mat-toolbar>
   <mat-sidenav-container class="sidenav-container" autosize>
-    <mat-sidenav #drawer class="sidenav" fixedInViewport fixedTopGap="136"
+    <mat-sidenav #drawer class="sidenav" fixedTopGap="136"
         [attr.role]="(isHandset$ | async) ? 'dialog' : 'navigation'"
         [mode]="(isHandset$ | async) ? 'over' : 'side'"
         [opened]="(isHandset$ | async) === false">
@@ -16,7 +16,7 @@
           *ngFor="let plant of plantService.plants | keyvalue" 
           [ngClass]="{activePlant: plant.key === plantService.activePlant}"
           (click)="activatePlant(plant.key)">
-          {{plant.key}}
+          {{plant.value?.config?.name ? plant.value.config.name : plant.key}}
         </a>
       </mat-nav-list>
     </mat-sidenav>

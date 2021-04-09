@@ -1,5 +1,14 @@
 <!-- <h1 *ngIf="ready">{{(plant$ | async)?.last_update | json}}</h1> -->
 <div class="plant-monitor-dashboard">
+  <mat-card class="plant-config">
+    <mat-card-header>
+      <button mat-card-avatar mat-flat-button mat-mini-fab color="primary" aria-label="Config" (click)="openDialog()">
+        <mat-icon>settings</mat-icon>
+      </button>
+      <mat-card-title>{{plantService?.plantConfig?.name ? plantService?.plantConfig?.name : plantService?.activePlant}}</mat-card-title>
+      <mat-card-subtitle class="last-update">Last Update: {{plantService?.lastUpdate?.timestamp*1000| date:"dd-MM-yyyy HH:mm:ss":"+0000"}}</mat-card-subtitle>
+    </mat-card-header>
+  </mat-card>
   <app-donut
     class="donut-water"
     donutValue="{{ plantService?.lastUpdate?.water }}"

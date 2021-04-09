@@ -10,6 +10,7 @@ export interface Plants {
 export interface Plant {
   last_update: PlantStatus;
   logs: {[key: string]: PlantStatus};
+  config: PlantConfig;
 }
 
 export interface PlantStatus {
@@ -34,6 +35,11 @@ interface SensorData {
   pointHoverBorderColor?: string;
 }
 
+interface PlantConfig {
+  name?: string;
+  tts?: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -45,6 +51,7 @@ export class PlantService {
   logs:PlantStatus[] = [];
   sensorDataset:SensorData[];
   timestampLogs:string[] = [];
+  plantConfig:PlantConfig = {};
 
   public lightConfig:SensorConfig = {
     min: 0,
@@ -57,6 +64,7 @@ export class PlantService {
 
   private activePlantID: string;
   private db:AngularFireDatabase;
+  private plantConfigRef:AngularFireObject<PlantConfig>;
   private lastUpdateSubscription:AngularFireObject<PlantStatus>;
   private logsSubscription:AngularFireList<{[key: string]: PlantStatus}>;
 
@@ -142,7 +150,12 @@ export class PlantService {
     this.sensorDataset[0].data.push(this.getWaterValue(log));
     this.sensorDataset[1].data.push(this.getLightValue(log));
     this.timestampLogs.push(this.getDateTimeValue(log));
-    
+  }
+
+  public savePlantConfig(config:PlantConfig) {
+    this.plantConfigRef.set(config);
+    this.plants[this.activePlantID].config = config;
+    this.plantConfig = config;
   }
 
   private setDatabaseSubscriptions() {
@@ -151,6 +164,12 @@ export class PlantService {
     this.lastUpdateSubscription = this.db.object<PlantStatus>(`${this.userID}/plants/${this.activePlantID}/last_update`);
     this.lastUpdateSubscription.valueChanges().subscribe((update:PlantStatus) => {
       this.lastUpdate = update;
+    });
+
+    this.plantConfigRef = this.db.object<PlantConfig>(`${this.userID}/plants/${this.activePlantID}/config`);
+    this.plantConfigRef.query.once('value').then((data) => {
+      this.plantConfig = data.val();
+      console.log('plant-config', data.val());
     });
 
     this.logsSubscription = this.db.list<{[key: string]: PlantStatus}>(`${this.userID}/plants/${this.activePlantID}/logs`);

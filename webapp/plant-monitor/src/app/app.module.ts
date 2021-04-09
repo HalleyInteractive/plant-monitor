@@ -20,7 +20,7 @@ import { PlantMonitorComponent } from './plant-monitor/plant-monitor.component';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { LayoutModule } from '@angular/cdk/layout';
 import { MatListModule } from '@angular/material/list';
-import { PlantMonitorDashboardComponent } from './plant-monitor-dashboard/plant-monitor-dashboard.component';
+import { PlantMonitorDashboardComponent, DialogPlantConfigDialog } from './plant-monitor-dashboard/plant-monitor-dashboard.component';
 import { ChartsModule } from 'ng2-charts';
 import { DonutComponent } from './donut/donut.component';
 import { WebespComponent } from './webesp/webesp.component';
@@ -30,6 +30,7 @@ import { WebespConfigComponent } from './webesp-config/webesp-config.component';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatDialogModule } from '@angular/material/dialog';
 
 @NgModule({
   declarations: [
@@ -42,6 +43,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
     WebespTerminalComponent,
     LineChartComponent,
     WebespConfigComponent,
+    DialogPlantConfigDialog 
   ],
   imports: [
     BrowserModule,
@@ -63,7 +65,8 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
     ReactiveFormsModule,
     MatSlideToggleModule,
     MatExpansionModule,
-    MatProgressBarModule
+    MatProgressBarModule,
+    MatDialogModule
   ],
   providers: [],
   bootstrap: [AppComponent]

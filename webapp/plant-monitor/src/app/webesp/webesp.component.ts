@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { WebespConfigService } from '../webesp-config.service';
 import { WebespTerminalService } from '../webesp-terminal.service';
+import { NavigationEnd, Router } from '@angular/router';
 
 interface StreamTarget {
   receive(data: Uint8Array): void;
@@ -50,8 +51,12 @@ export class WebespComponent implements OnInit {
   loader: ESPLoader | null = null;
 
   serialAvailable: Boolean = false;
-  constructor(public terminal: WebespTerminalService, public config:WebespConfigService) {
-
+  constructor(public terminal: WebespTerminalService, public config:WebespConfigService, private router: Router) {
+    router.events.subscribe((event) => {
+      if ( event instanceof NavigationEnd ) {
+        this.onDisconnect();
+      }
+    });
   }
 
   ngOnInit(): void {
@@ -559,7 +564,7 @@ class ESPLoader {
     for (let o = 0; o < buf.length; o += blockSize) {
       let cs = 0xef;
       for (let i = 0; i < blockSize; ++i) {
-        this.progress = Math.floor(100 * o / buf.length);
+        this.progress = Math.ceil(100 * o / buf.length);
         let v = 0xff;
         if (o + i < buf.length) {
           v = buf[o + i];

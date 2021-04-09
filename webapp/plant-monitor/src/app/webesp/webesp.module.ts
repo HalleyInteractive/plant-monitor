@@ -14,6 +14,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { WebespConfigComponent } from '../webesp-config/webesp-config.component';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatFormFieldModule } from '@angular/material/form-field';
 
 @NgModule({
   declarations: [
@@ -33,7 +34,8 @@ import { MatDividerModule } from '@angular/material/divider';
     MatIconModule,
     MatSlideToggleModule,
     MatExpansionModule,
-    MatDividerModule
+    MatDividerModule,
+    MatFormFieldModule
   ]
 })
 export class WebespModule { }
