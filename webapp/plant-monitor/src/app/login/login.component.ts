@@ -30,6 +30,18 @@ export class LoginComponent implements OnInit {
     })
     .catch((reason) => {
       this._snackBar.open(reason?.message);
+    });
+  }
+  
+  createAccount():void {
+    const credentials = this.loginForm.value;
+    console.log('Create account');
+    this.auth.createUserWithEmailAndPassword(credentials.username, credentials.password)
+    .then((user) => {
+      this.router.navigate(['']);
+    })
+    .catch((reason) => {
+      this._snackBar.open(reason?.message);
     })
   }
 
