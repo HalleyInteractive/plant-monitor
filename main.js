@@ -2039,9 +2039,20 @@ class LoginComponent {
             this._snackBar.open(reason === null || reason === void 0 ? void 0 : reason.message);
         });
     }
+    createAccount() {
+        const credentials = this.loginForm.value;
+        console.log('Create account');
+        this.auth.createUserWithEmailAndPassword(credentials.username, credentials.password)
+            .then((user) => {
+            this.router.navigate(['']);
+        })
+            .catch((reason) => {
+            this._snackBar.open(reason === null || reason === void 0 ? void 0 : reason.message);
+        });
+    }
 }
 LoginComponent.ɵfac = function LoginComponent_Factory(t) { return new (t || LoginComponent)(_angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵdirectiveInject"](_angular_fire_auth__WEBPACK_IMPORTED_MODULE_2__["AngularFireAuth"]), _angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵdirectiveInject"](_angular_material_snack_bar__WEBPACK_IMPORTED_MODULE_3__["MatSnackBar"]), _angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵdirectiveInject"](_angular_router__WEBPACK_IMPORTED_MODULE_4__["Router"])); };
-LoginComponent.ɵcmp = _angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵdefineComponent"]({ type: LoginComponent, selectors: [["app-login"]], decls: 29, vars: 5, consts: [["cols", "1", "rows", "1", "rowHeight", "2:1"], [3, "formGroup", "ngSubmit"], [1, "login-card", "mat-elevation-z4"], ["mat-card-avatar", "", 1, "header-image"], [1, "form-field"], ["matInput", "", "formControlName", "username"], ["username", ""], ["matInput", "", "formControlName", "password", 3, "type"], ["password", ""], ["mat-icon-button", "", "matSuffix", "", 3, "click"], ["mat-raised-button", "", "color", "primary", 3, "click"]], template: function LoginComponent_Template(rf, ctx) { if (rf & 1) {
+LoginComponent.ɵcmp = _angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵdefineComponent"]({ type: LoginComponent, selectors: [["app-login"]], decls: 31, vars: 5, consts: [["cols", "1", "rows", "1", "rowHeight", "2:1"], [3, "formGroup", "ngSubmit"], [1, "login-card", "mat-elevation-z4"], ["mat-card-avatar", "", 1, "header-image"], [1, "form-field"], ["matInput", "", "formControlName", "username"], ["username", ""], ["matInput", "", "formControlName", "password", 3, "type"], ["password", ""], ["mat-icon-button", "", "matSuffix", "", 3, "click"], ["mat-raised-button", "", "color", "primary", 3, "click"], ["mat-raised-button", "", "color", "accent", 3, "click"]], template: function LoginComponent_Template(rf, ctx) { if (rf & 1) {
         _angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵelementStart"](0, "mat-grid-list", 0);
         _angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵelementStart"](1, "mat-grid-tile");
         _angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵelementStart"](2, "form", 1);
@@ -2084,6 +2095,10 @@ LoginComponent.ɵcmp = _angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵdefineCom
         _angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵelementStart"](27, "button", 10);
         _angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵlistener"]("click", function LoginComponent_Template_button_click_27_listener() { return ctx.login(); });
         _angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵtext"](28, "LOGIN");
+        _angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵelementEnd"]();
+        _angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵelementStart"](29, "button", 11);
+        _angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵlistener"]("click", function LoginComponent_Template_button_click_29_listener() { return ctx.createAccount(); });
+        _angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵtext"](30, "Create Account");
         _angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵelementEnd"]();
         _angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵelementEnd"]();
         _angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵelementEnd"]();
