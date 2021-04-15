@@ -163,7 +163,11 @@ export class PlantService {
 
     this.lastUpdateSubscription = this.db.object<PlantStatus>(`${this.userID}/plants/${this.activePlantID}/last_update`);
     this.lastUpdateSubscription.valueChanges().subscribe((update:PlantStatus) => {
-      this.lastUpdate = update;
+      this.lastUpdate = {
+        water: this.getWaterValue(update),
+        light: this.getLightValue(update),
+        timestamp: update.timestamp
+      };
     });
 
     this.plantConfigRef = this.db.object<PlantConfig>(`${this.userID}/plants/${this.activePlantID}/config`);
