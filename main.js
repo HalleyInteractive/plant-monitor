@@ -116,13 +116,9 @@ class DonutComponent {
     }
     set donutValue(value) {
         if (value !== null) {
-            const percentage = Math.round(this.mapToRange(value, 0, 4095, 0, 100));
-            const remaining = 100 - percentage;
-            this.doughnutChartData = [[percentage, remaining]];
+            const remaining = 100 - value;
+            this.doughnutChartData = [[value, remaining]];
         }
-    }
-    mapToRange(value, inMin, inMax, outMin, outMax) {
-        return (value - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
     }
     ngOnInit() {
         this.doughnutChartColors = [
