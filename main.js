@@ -462,9 +462,9 @@ class ESPImage {
     }
     load() {
         return Object(tslib__WEBPACK_IMPORTED_MODULE_0__["__awaiter"])(this, void 0, void 0, function* () {
+            this.partitions.push(new Partition(0x1000, 'assets/bin/bootloader.bin', this.terminal, this.config));
             this.partitions.push(new Partition(0x8000, 'assets/bin/partition-table.bin', this.terminal, this.config));
-            // this.partitions.push(new Partition(0x1000, 'assets/bin/bootloader.bin'));
-            this.partitions.push(new Partition(0x10000, 'assets/bin/simple.bin', this.terminal, this.config));
+            this.partitions.push(new Partition(0x10000, 'assets/bin/app.bin', this.terminal, this.config));
             for (let i = 0; i < this.partitions.length; ++i) {
                 yield this.partitions[i].load();
                 yield this.partitions[i].applyPatches();
