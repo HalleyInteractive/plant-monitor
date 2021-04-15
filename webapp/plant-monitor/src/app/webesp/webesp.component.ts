@@ -217,9 +217,9 @@ class ESPImage {
   constructor(private terminal: WebespTerminalService, private config:WebespConfigService) { }
 
   async load() {
+    this.partitions.push(new Partition(0x1000, 'assets/bin/bootloader.bin', this.terminal, this.config));
     this.partitions.push(new Partition(0x8000, 'assets/bin/partition-table.bin', this.terminal, this.config));
-    // this.partitions.push(new Partition(0x1000, 'assets/bin/bootloader.bin'));
-    this.partitions.push(new Partition(0x10000, 'assets/bin/simple.bin', this.terminal, this.config));
+    this.partitions.push(new Partition(0x10000, 'assets/bin/app.bin', this.terminal, this.config));
 
     for (let i = 0; i < this.partitions.length; ++i) {
       await this.partitions[i].load();
