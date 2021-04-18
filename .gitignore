@@ -35,3 +35,5 @@
 /schematics/*-bak
 *.log
 *.cache
+
+.DS_Store
