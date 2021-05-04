@@ -219,6 +219,7 @@ class ESPImage {
   async load() {
     this.partitions.push(new Partition(0x1000, 'assets/bin/bootloader.bin', this.terminal, this.config));
     this.partitions.push(new Partition(0x8000, 'assets/bin/partition-table.bin', this.terminal, this.config));
+    this.partitions.push(new Partition(0x9000, 'assets/bin/nvs-partition.bin', this.terminal, this.config));
     this.partitions.push(new Partition(0x10000, 'assets/bin/app.bin', this.terminal, this.config));
 
     for (let i = 0; i < this.partitions.length; ++i) {

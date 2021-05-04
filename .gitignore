@@ -37,3 +37,6 @@
 *.cache
 
 .DS_Store
+
+firmware/plant-monitor/build
+firmware/bin

@@ -75,6 +75,13 @@ void setup() {
   char* firebaseAPIKey = getNVSStringEntry(&nvsHandle, "fbAPIKey");
   char* firebaseUsername = getNVSStringEntry(&nvsHandle, "fbUsername");
   char* firebasePassword = getNVSStringEntry(&nvsHandle, "fbPassword");
+  
+  Serial.println(wifiSSID);
+  Serial.println(wifiPassword);
+  Serial.println(firebaseHost);
+  Serial.println(firebaseAPIKey);
+  Serial.println(firebaseUsername);
+  Serial.println(firebasePassword);
 
   setLEDColor(BLUE);
   WiFi.begin(wifiSSID, wifiPassword);
