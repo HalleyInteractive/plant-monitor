@@ -106,17 +106,22 @@ export class PlantService {
   }
 
   private getDateTimeValue(entry:PlantStatus):string {
-    return new Date(entry?.timestamp * 1000).toLocaleString();
+    return new Date(entry.timestamp * 1000).toLocaleString();
+    // return new Date(entry?.timestamp * 1000).toLocaleString();
   }
 
   private getWaterValue(entry:PlantStatus):number {
-    return this.map(entry?.water, this.waterConfig.min,
+    return this.map(entry.water, this.waterConfig.min,
       this.waterConfig.max, 100, 0);
+    // return this.map(entry?.water, this.waterConfig.min,
+    //   this.waterConfig.max, 100, 0);
   }
 
   private getLightValue(entry:PlantStatus):number {
-    return this.map(entry?.light, this.lightConfig.min, 
+    return this.map(entry.light, this.lightConfig.min, 
       this.lightConfig.max, 0, 100);
+    // return this.map(entry?.light, this.lightConfig.min, 
+    //   this.lightConfig.max, 0, 100);
   }
 
   private clearLogs():void {

@@ -8,9 +8,7 @@ import { WebespTerminalService } from '../webesp-terminal.service';
 })
 export class WebespTerminalComponent implements OnInit {
 
-  terminal:WebespTerminalService;
-  constructor(terminalService:WebespTerminalService) {
-    this.terminal = terminalService;
+  constructor(public terminal:WebespTerminalService) {
   }
 
   ngOnInit(): void {

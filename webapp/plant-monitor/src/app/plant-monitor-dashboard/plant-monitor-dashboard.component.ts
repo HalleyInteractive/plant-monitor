@@ -37,9 +37,13 @@ export class DialogPlantConfigDialog {
     tts: new FormControl()
   });
   constructor(public dialogRef: MatDialogRef<DialogPlantConfigDialog>, public plantService:PlantService) {
+    // this.plantConfigForm = new FormGroup ({ 
+    //   name: new FormControl(this.plantService?.plantConfig?.name),
+    //   tts: new FormControl(this.plantService?.plantConfig?.tts)
+    // });
     this.plantConfigForm = new FormGroup ({ 
-      name: new FormControl(this.plantService?.plantConfig?.name),
-      tts: new FormControl(this.plantService?.plantConfig?.tts)
+      name: new FormControl(this.plantService.plantConfig.name),
+      tts: new FormControl(this.plantService.plantConfig.tts)
     });
   }
 

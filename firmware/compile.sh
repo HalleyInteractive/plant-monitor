@@ -9,7 +9,7 @@ cp ./bootloader-image/bootloader_dio_40m.bin ./bin/bootloader.bin
 python ./partition-table/gen_esp32part.py ./partition-table/partition-table.csv ./bin/partition-table.bin
 
 # NVS PARTITION
-python ./nvs-partition/nvs_partition_gen.py generate ./nvs-partition/nvs-file.csv ./bin/nvs-partition.bin 0x6000
+# python ./nvs-partition/nvs_partition_gen.py generate ./nvs-partition/nvs-file.csv ./bin/nvs-partition.bin 0x6000
 
 # COPY TO WEBAPP
 cp -r ./bin ./../webapp/plant-monitor/src/assets/

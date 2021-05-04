@@ -31,21 +31,21 @@
       </mat-expansion-panel-header>
       <mat-form-field class="formfield half-width">
         <mat-label>Firebase Username</mat-label>
-        <input matInput placeholder="Firebase Username" formControlName="firebaseUsername">
+        <input matInput placeholder="Firebase Username" formControlName="fbUsername">
       </mat-form-field>
       <mat-form-field class="formfield half-width">
         <mat-label>Firebase Password</mat-label>
-        <input matInput type="password" placeholder="Firebase Password" formControlName="firebasePassword">
+        <input matInput type="password" placeholder="Firebase Password" formControlName="fbPassword">
       </mat-form-field>
       <mat-slide-toggle [checked]="config.customFirebaseHosting" (change)="config.customFirebaseHosting = !config.customFirebaseHosting" class="formfield">Custom Firebase Hosting</mat-slide-toggle>
       <br />
       <mat-form-field *ngIf="config.customFirebaseHosting" class="formfield half-width">
         <mat-label>Firebase Host</mat-label>
-        <input matInput placeholder="Firebase Host"formControlName="firebaseHost">
+        <input matInput placeholder="Firebase Host"formControlName="fbHost">
       </mat-form-field>
       <mat-form-field *ngIf="config.customFirebaseHosting" class="formfield half-width">
         <mat-label>Firebase API Key</mat-label>
-        <input matInput placeholder="Firebase API Key" formControlName="firebaseAPIKey">
+        <input matInput placeholder="Firebase API Key" formControlName="fbAPIKey">
       </mat-form-field>
     </mat-expansion-panel>
   </mat-accordion>

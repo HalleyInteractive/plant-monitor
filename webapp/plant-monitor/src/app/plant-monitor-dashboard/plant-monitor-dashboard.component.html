@@ -11,12 +11,12 @@
   </mat-card>
   <app-donut
     class="donut-water"
-    donutValue="{{ plantService?.lastUpdate?.water }}"
+    (donutValue)="plantService?.lastUpdate?.water"
     donutColor="rgba(62, 192, 247, 1)">
   </app-donut>
   <app-donut
     class="donut-light"
-    donutValue="{{ plantService?.lastUpdate?.light }}"
+    (donutValue)="plantService?.lastUpdate?.light"
     donutColor="rgba(252, 239, 93, 1)">
   </app-donut>
   <app-line-chart

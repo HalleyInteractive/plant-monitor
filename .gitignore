@@ -40,3 +40,4 @@
 
 firmware/plant-monitor/build
 firmware/bin
+.DS_Store

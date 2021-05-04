@@ -29,7 +29,7 @@ export class LoginComponent implements OnInit {
       this.router.navigate(['']);
     })
     .catch((reason) => {
-      this._snackBar.open(reason?.message);
+      this._snackBar.open(reason.message);
     });
   }
   
@@ -41,7 +41,7 @@ export class LoginComponent implements OnInit {
       this.router.navigate(['']);
     })
     .catch((reason) => {
-      this._snackBar.open(reason?.message);
+      this._snackBar.open(reason.message);
     })
   }
 
