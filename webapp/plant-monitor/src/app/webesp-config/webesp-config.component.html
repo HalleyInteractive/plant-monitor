@@ -1,0 +1,52 @@
+<form class="esp-config-form" [formGroup]="config.espConfigForm">
+  <mat-accordion class="headers-align" multi>
+    <mat-expansion-panel>
+      <mat-expansion-panel-header>
+        <mat-panel-title>
+          WiFi Configuration
+        </mat-panel-title>
+        <mat-panel-description>
+          WiFi SSID and Password
+          <mat-icon>wifi</mat-icon>
+        </mat-panel-description>
+      </mat-expansion-panel-header>
+      <mat-form-field class="formfield half-width">
+        <mat-label>WiFi SSID</mat-label>
+        <input matInput placeholder="Wifi SSID" formControlName="wifiSSID">
+      </mat-form-field>
+      <mat-form-field class="formfield half-width">
+        <mat-label>Wifi Password</mat-label>
+        <input matInput type="password" placeholder="WiFi Password" formControlName="wifiPassword">
+      </mat-form-field>
+    </mat-expansion-panel>
+    <mat-expansion-panel>
+      <mat-expansion-panel-header>
+        <mat-panel-title>
+          Firebase Configuration
+        </mat-panel-title>
+        <mat-panel-description>
+          Authentication and Firebase App
+          <mat-icon>storage</mat-icon>
+        </mat-panel-description>
+      </mat-expansion-panel-header>
+      <mat-form-field class="formfield half-width">
+        <mat-label>Firebase Username</mat-label>
+        <input matInput placeholder="Firebase Username" formControlName="firebaseUsername">
+      </mat-form-field>
+      <mat-form-field class="formfield half-width">
+        <mat-label>Firebase Password</mat-label>
+        <input matInput type="password" placeholder="Firebase Password" formControlName="firebasePassword">
+      </mat-form-field>
+      <mat-slide-toggle [checked]="config.customFirebaseHosting" (change)="config.customFirebaseHosting = !config.customFirebaseHosting" class="formfield">Custom Firebase Hosting</mat-slide-toggle>
+      <br />
+      <mat-form-field *ngIf="config.customFirebaseHosting" class="formfield half-width">
+        <mat-label>Firebase Host</mat-label>
+        <input matInput placeholder="Firebase Host"formControlName="firebaseHost">
+      </mat-form-field>
+      <mat-form-field *ngIf="config.customFirebaseHosting" class="formfield half-width">
+        <mat-label>Firebase API Key</mat-label>
+        <input matInput placeholder="Firebase API Key" formControlName="firebaseAPIKey">
+      </mat-form-field>
+    </mat-expansion-panel>
+  </mat-accordion>
+</form>

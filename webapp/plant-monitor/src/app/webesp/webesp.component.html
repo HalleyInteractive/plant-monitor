@@ -1,0 +1,16 @@
+<div *ngIf="serialAvailable" class="webesp-container">
+  <app-webesp-config></app-webesp-config>
+  <mat-card class="webesp-connection">
+    <button *ngIf="!port" mat-raised-button color="primary"(click)="onConnect()">Connect</button>
+    <button *ngIf="port && port.connected" mat-raised-button color="primary"(click)="onDisconnect()">Disconnect</button>
+    <button *ngIf="port && port.connected" mat-raised-button color="accent"(click)="onReset()">Reset / Flash</button>
+    <div *ngIf="loader" class="progress">
+      <mat-progress-bar mode="determinate" color="accent" [value]="loader.progress"></mat-progress-bar>
+      Flashing: {{loader.progress}} %
+    </div>
+  </mat-card>
+  <mat-card>
+    <app-webesp-terminal></app-webesp-terminal>
+  </mat-card>
+</div>
+<div *ngIf="!serialAvailable">Serial not available, try the latest Chrome version.</div>
