@@ -69,12 +69,12 @@ void setup() {
   ESP_ERROR_CHECK(nvs_flash_init());
   ESP_ERROR_CHECK(nvs_open("storage", NVS_READWRITE, &nvsHandle));
 
-  wifiSSID = getNVSStringEntry(&nvsHandle, 'wifiSSID');
-  wifiPassword = getNVSStringEntry(&nvsHandle, 'wifiPassword');
-  firebaseHost = getNVSStringEntry(&nvsHandle, 'fbHost');
-  firebaseAPIKey = getNVSStringEntry(&nvsHandle, 'fbAPIKey');
-  firebaseUsername = getNVSStringEntry(&nvsHandle, 'fbUsername');
-  firebasePassword = getNVSStringEntry(&nvsHandle, 'fbPassword');
+  char* wifiSSID = getNVSStringEntry(&nvsHandle, "wifiSSID");
+  char* wifiPassword = getNVSStringEntry(&nvsHandle, "wifiPassword");
+  char* firebaseHost = getNVSStringEntry(&nvsHandle, "fbHost");
+  char* firebaseAPIKey = getNVSStringEntry(&nvsHandle, "fbAPIKey");
+  char* firebaseUsername = getNVSStringEntry(&nvsHandle, "fbUsername");
+  char* firebasePassword = getNVSStringEntry(&nvsHandle, "fbPassword");
 
   setLEDColor(BLUE);
   WiFi.begin(wifiSSID, wifiPassword);
@@ -95,12 +95,12 @@ void setup() {
   Firebase.reconnectWiFi(true);
 }
 
-char* getNVSStringEntry(nvs_handle_t *handle, string key) {
+char* getNVSStringEntry(nvs_handle_t *handle, char* key) {
   size_t required_size;
-  ESP_ERROR_CHECK(nvs_get_str(my_handle, key, NULL, &required_size));
+  ESP_ERROR_CHECK(nvs_get_str(nvsHandle, key, NULL, &required_size));
   char* value = (char*)malloc(required_size);
-  ESP_ERROR_CHECK(nvs_get_str(my_handle, key, value, &required_size));
-  return value
+  ESP_ERROR_CHECK(nvs_get_str(nvsHandle, key, value, &required_size));
+  return value;
 }
 
 /**
