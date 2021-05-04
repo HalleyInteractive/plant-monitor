@@ -1,0 +1,1 @@
+arduino-cli compile -b esp32:esp32:esp32 ./plant-monitor/plant-monitor.ino
