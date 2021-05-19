@@ -14,9 +14,9 @@ export class DonutComponent implements OnInit {
   public doughnutChartLabels: Label[] = [];
   public doughnutChartData: MultiDataSet = [[0, 0]];
   public chartOptions: ChartOptions = {
-    tooltips: {
-      enabled: false
-    },
+    // tooltips: {
+    //   enabled: false
+    // },
     responsive: true
   }
 
