@@ -3,6 +3,7 @@ import { AngularFireAuth } from '@angular/fire/auth';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { FormControl, FormGroup } from '@angular/forms';
+import { WebespConfigService } from '../webesp-config.service';
 
 @Component({
   selector: 'app-login',
@@ -17,7 +18,12 @@ export class LoginComponent implements OnInit {
     password: new FormControl()
   });
 
-  constructor(public auth: AngularFireAuth, private _snackBar: MatSnackBar, private router: Router) { }
+  createAccountForm = new FormGroup ({ 
+    username: new FormControl(),
+    password: new FormControl()
+  });
+
+  constructor(public auth: AngularFireAuth, private _snackBar: MatSnackBar, private router: Router, public webespConfig:WebespConfigService) { }
 
   ngOnInit(): void {}
 
@@ -26,6 +32,10 @@ export class LoginComponent implements OnInit {
     this.auth.signInWithEmailAndPassword(credentials.username, 
       credentials.password)
     .then(() => {
+      this.webespConfig.espConfigForm.setValue({
+        fbUsername: credentials.username,
+        fbPassword: credentials.password
+      });
       this.router.navigate(['']);
     })
     .catch((reason) => {
@@ -34,14 +44,15 @@ export class LoginComponent implements OnInit {
   }
   
   createAccount():void {
-    const credentials = this.loginForm.value;
+    const credentials = this.createAccountForm.value;
     console.log('Create account');
     this.auth.createUserWithEmailAndPassword(credentials.username, credentials.password)
     .then((user) => {
+      this.webespConfig.espConfigForm.patchValue({
+        fbUsername: credentials.username,
+        fbPassword: credentials.password
+      });
       this.router.navigate(['']);
-    })
-    .catch((reason) => {
-      this._snackBar.open(reason.message);
     })
   }
 

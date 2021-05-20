@@ -14,9 +14,9 @@ export class DonutComponent implements OnInit {
   public doughnutChartLabels: Label[] = [];
   public doughnutChartData: MultiDataSet = [[0, 0]];
   public chartOptions: ChartOptions = {
-    // tooltips: {
-    //   enabled: false
-    // },
+    tooltips: {
+      enabled: false
+    },
     responsive: true
   }
 
@@ -26,6 +26,7 @@ export class DonutComponent implements OnInit {
 
   @Input()
   set donutValue(value:number) {
+    console.log('DONUT VALUE', value)
     if(value !== null) {
       const remaining = 100 - value;
       this.doughnutChartData = [[value, remaining]];

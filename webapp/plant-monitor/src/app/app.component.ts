@@ -17,4 +17,8 @@ export class AppComponent {
       this.router.navigate(['login']);
     });
   }
+
+  openGithub() {
+    window.open("https://github.com/HalleyInteractive/plant-monitor", "_blank");
+  }
 }

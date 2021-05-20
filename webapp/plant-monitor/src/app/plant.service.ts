@@ -173,6 +173,7 @@ export class PlantService {
         light: this.getLightValue(update),
         timestamp: update.timestamp
       };
+      console.log('LAST UPDATE', this.lastUpdate);
     });
 
     this.plantConfigRef = this.db.object<PlantConfig>(`${this.userID}/plants/${this.activePlantID}/config`);

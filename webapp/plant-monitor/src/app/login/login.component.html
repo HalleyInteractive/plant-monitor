@@ -1,34 +1,89 @@
 <mat-grid-list cols="1" rows="1" rowHeight="2:1">
   <mat-grid-tile>
-    <form [formGroup]="loginForm" (ngSubmit)="login()">
-      <mat-card class="login-card mat-elevation-z4">
-        <mat-card-header>
-          <div mat-card-avatar class="header-image"></div>
-          <mat-card-title>Login</mat-card-title>
-          <mat-card-subtitle>Plant Monitor</mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content>
-          <p>
-            <mat-form-field class="form-field">
-              <mat-label>Enter your email</mat-label>
-              <input #username matInput formControlName="username">
-            </mat-form-field>
-          </p>
-          <p>
-            <mat-form-field class="form-field">
-              <mat-label>Enter your password</mat-label>
-              <input #password matInput [type]="hide ? 'password' : 'text'"  formControlName="password">
-              <button mat-icon-button matSuffix (click)="hide = !hide" [attr.aria-label]="'Hide password'" [attr.aria-pressed]="hide">
-              <mat-icon>{{hide ? 'visibility_off' : 'visibility'}}</mat-icon>
-              </button>
-            </mat-form-field>
-          </p>
-        </mat-card-content>
-        <mat-card-actions>
-          <button mat-raised-button color="primary"(click)="login()">LOGIN</button>
-          <button mat-raised-button color="accent"(click)="createAccount()">Create Account</button>
-        </mat-card-actions>
-      </mat-card>
-    </form>
+    <mat-card class="login-card mat-elevation-z4">
+      <mat-card-header>
+        <div mat-card-avatar class="header-image"></div>
+        <mat-card-title>Login</mat-card-title>
+        <mat-card-subtitle>Plant Monitor</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content >
+        <mat-tab-group class="tabs">
+          <mat-tab label="Login">
+            <form [formGroup]="loginForm" (ngSubmit)="login()">
+  
+                <mat-form-field class="form-field">
+                  <mat-label>Enter your email</mat-label>
+                  <input #username matInput formControlName="username" />
+                </mat-form-field>
+                <mat-form-field class="form-field">
+                  <mat-label>Enter your password</mat-label>
+                  <input
+                    #password
+                    matInput
+                    [type]="hide ? 'password' : 'text'"
+                    formControlName="password"
+                  />
+                  <button
+                    mat-icon-button
+                    matSuffix
+                    (click)="hide = !hide"
+                    [attr.aria-label]="'Hide password'"
+                    [attr.aria-pressed]="hide"
+                  >
+                    <mat-icon>{{
+                      hide ? "visibility_off" : "visibility"
+                    }}</mat-icon>
+                  </button>
+                </mat-form-field>
+
+                <button mat-raised-button color="primary" (click)="login()">
+                  LOGIN
+                </button>
+
+            </form>
+          </mat-tab>
+          <mat-tab label="Create Account">
+            <form [formGroup]="createAccountForm" (ngSubmit)="createAccount()">
+
+                <mat-form-field class="form-field">
+                  <mat-label>Enter your email</mat-label>
+                  <input #username matInput formControlName="username" />
+                </mat-form-field>
+
+                <mat-form-field class="form-field">
+                  <mat-label>Enter your password</mat-label>
+                  <input
+                    #password
+                    matInput
+                    [type]="hide ? 'password' : 'text'"
+                    formControlName="password"
+                  />
+                  <button
+                    mat-icon-button
+                    matSuffix
+                    (click)="hide = !hide"
+                    [attr.aria-label]="'Hide password'"
+                    [attr.aria-pressed]="hide"
+                  >
+                    <mat-icon>{{
+                      hide ? "visibility_off" : "visibility"
+                    }}</mat-icon>
+                  </button>
+                </mat-form-field>
+   
+
+                <button
+                  mat-raised-button
+                  color="accent"
+                  (click)="createAccount()"
+                >
+                  Create Account
+                </button>
+
+            </form>
+          </mat-tab>
+        </mat-tab-group>
+      </mat-card-content>
+    </mat-card>
   </mat-grid-tile>
 </mat-grid-list>
