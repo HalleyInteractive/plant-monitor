@@ -40,7 +40,7 @@ void setup()
   // preferences.putString("last_watered", String(millis()));
 
   preferences.end();
-  Serial.println("Setup complete.");
+  Serial.println("Setup complete :)");
 }
 
 void loop()
