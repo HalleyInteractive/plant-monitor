@@ -41,3 +41,7 @@
 firmware/plant-monitor/build
 firmware/bin
 .DS_Store
+
+node_modules
+build
+dist
