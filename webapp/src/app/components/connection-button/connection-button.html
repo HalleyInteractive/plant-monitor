@@ -1,0 +1,11 @@
+@if(espService.connected()) {
+  <button matButton="tonal" (click)="disconnect()">
+    <mat-icon>developer_board_on</mat-icon>
+    Connected
+  </button>
+} @else {
+  <button matButton="tonal" (click)="connect()">
+    <mat-icon>developer_board_off</mat-icon>
+    Not connected
+  </button>
+}

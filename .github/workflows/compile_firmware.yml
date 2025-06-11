@@ -1,0 +1,49 @@
+name: Compile ESP32 Firmware
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-esp32:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up arduino-cli
+        uses: arduino/setup-arduino-cli@v1
+
+      - name: Install ESP32 board support
+        run: |
+          arduino-cli core update-index --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+          arduino-cli core install esp32:esp32 --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+
+      - name: Compile sketch
+        run: |
+          arduino-cli compile --fqbn esp32:esp32:esp32 --output-dir webapp/public/happy-plant firmware/happy-plant/happy-plant.ino
+
+      - name: Get Bootloader
+        run: |
+          # The bootloader binary is located within the ESP32 board package.
+          # This command finds the path to the bootloader and copies it.
+          BOOTLOADER_PATH=$(arduino-cli config dump | grep 'package_esp32_esp32' | sed 's/.*: //')/tools/sdk/bin/bootloader_dio_80m.bin
+          cp $BOOTLOADER_PATH public/happy-plant/
+
+      - name: List output files
+        run: ls -l public/esp32
+
+      - name: Commit and push compiled files
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add public/esp32/*
+          # Check if there are changes to commit
+          if ! git diff --staged --quiet; then
+            git commit -m "Automated ESP32 firmware build"
+            git push
+          else
+            echo "No changes to commit."
+          fi
