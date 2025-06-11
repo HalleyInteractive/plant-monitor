@@ -120,8 +120,7 @@ export class EspService {
 
   async disconnect() {
     // await this.controller.closePort();
-    console.log('GOGOGO')
-    // await this.flashFirmware();
+    await this.flashFirmware();
     this.startSerialLogReader(this.controller)
   }
 
