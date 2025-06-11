@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    paths:
+      # Only run when the firmware code changes
+      - "firmware/happy-plant/**"
 
 jobs:
   build-esp32:
@@ -21,28 +24,27 @@ jobs:
           arduino-cli core update-index --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
           arduino-cli core install esp32:esp32 --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
 
-      - name: Compile sketch
+      - name: Compile and Export Binaries
         run: |
-          arduino-cli compile --fqbn esp32:esp32:esp32 --output-dir webapp/public/happy-plant firmware/happy-plant/happy-plant.ino
-
-      - name: Get Bootloader
-        run: |
-          # The bootloader binary is located within the ESP32 board package.
-          # This command finds the path to the bootloader and copies it.
-          BOOTLOADER_PATH=$(arduino-cli config dump | grep 'package_esp32_esp32' | sed 's/.*: //')/tools/sdk/bin/bootloader_dio_80m.bin
-          cp $BOOTLOADER_PATH public/happy-plant/
+          arduino-cli compile \
+            --fqbn esp32:esp32:esp32 \
+            --output-dir webapp/public/binaries \
+            --export-binaries \
+            firmware/happy-plant/happy-plant.ino
 
       - name: List output files
-        run: ls -l public/esp32
+        run: |
+          echo "Compiled binaries are located in webapp/public/binaries:"
+          ls -l webapp/public/binaries
 
       - name: Commit and push compiled files
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git add public/esp32/*
+          git add webapp/public/binaries/*
           # Check if there are changes to commit
           if ! git diff --staged --quiet; then
-            git commit -m "Automated ESP32 firmware build"
+            git commit -m "Automated ESP32 firmware build for happy-plant"
             git push
           else
             echo "No changes to commit."
