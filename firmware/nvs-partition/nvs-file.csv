@@ -1,8 +1,0 @@
-key,type,encoding,value
-storage,namespace,,
-wifiSSID,data,string,WIFI_SSID_HERE
-wifiPassword,data,string,WIFI_PW_HERE
-fbHost,data,string,FIREBASE_HOST_HERE
-fbAPIKey,data,string,FIREBASE_API_KEY_HERE
-fbUsername,data,string,FIREBASE_USERNAME_HERE
-fbPassword,data,string,FIREBASE_PASSWORD_HERE
