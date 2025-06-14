@@ -1,0 +1,13 @@
+Logs
+
+ {{espService.serialLog()}}
+
+@for (logEntry of espService.serialLog(); track $index) {
+  <p>{{logEntry}}</p>
+}
+<mat-list role="list">
+ @for (logEntry of espService.serialLog(); track $index) {
+  <p>asdf</p>
+  <mat-list-item role="listitem">{{logEntry}}</mat-list-item>
+ }
+</mat-list>

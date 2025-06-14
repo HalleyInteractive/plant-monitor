@@ -7,11 +7,12 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
 import { MatToolbarModule } from '@angular/material/toolbar';
+import { Logs } from "../../components/logs/logs";
 
 
 @Component({
   selector: 'app-home',
-  imports: [MatButtonModule,MatCardModule, MatFormFieldModule, MatToolbarModule, MatIconModule, MatDividerModule, MatListModule],
+  imports: [MatButtonModule, MatCardModule, MatFormFieldModule, MatToolbarModule, MatIconModule, MatDividerModule, MatListModule, Logs],
   standalone: true,
   providers: [EspService],
   templateUrl: './home.html',

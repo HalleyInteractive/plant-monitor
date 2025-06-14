@@ -11,6 +11,8 @@ import { SerialController } from 'esp-controller';
 import * as Esp from '../models/esp.model';
 import * as Plant from '../models/plant.model';
 
+const MAX_LOG_ENTRIES = 100;
+
 @Injectable({
   providedIn: 'root',
 })
@@ -25,6 +27,7 @@ export class EspService {
   readonly version = signal<string | null>(null);
   readonly currentSensorValues = signal<number[]>([]);
   readonly sensorHistory = signal<Plant.SensorHistory[]>([]);
+  readonly serialLog = signal<string[]>([]);
 
   constructor() {
     Esp.onFlashProgress(this.controller, (progress, partition) => {
@@ -99,6 +102,7 @@ export class EspService {
 
   private startResponseListener() {
     Esp.startSerialListener(this.controller, (line) => {
+      this.addLogEntry(line);
       this.handleResponse(line);
     }).catch(() => {
       // If the listener fails, it means the connection is lost.
@@ -144,5 +148,24 @@ export class EspService {
     } else {
       console.error(`Device Error (Command: ${response.command}): ${response.payload}`);
     }
+  }
+
+  /**
+   * Appends a new entry to the serial log and ensures the log
+   * does not exceed the maximum number of entries.
+   * @param entry The string entry to add to the log.
+   */
+  private addLogEntry(entry: string) {
+    this.serialLog.update(currentLogs => {
+      // Create a new array with the new entry appended
+      const newLogs = [...currentLogs, entry];
+
+      // If the new array exceeds the max length, slice it from the end
+      if (newLogs.length > MAX_LOG_ENTRIES) {
+        return newLogs.slice(newLogs.length - MAX_LOG_ENTRIES);
+      }
+      return newLogs;
+    });
+    console.log('SIGNAL:', this.serialLog());
   }
 }
