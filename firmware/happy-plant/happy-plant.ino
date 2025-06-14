@@ -57,6 +57,7 @@ int sensorHistory[MAX_SENSORS][HISTORY_DAYS];
 int historyWriteIndex = 0;
 
 // --- ESP-NOW Configuration ---
+uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 esp_now_peer_info_t broadcastPeer;
 
 // --- Communication Protocol ---
@@ -118,7 +119,7 @@ void handleSerialCommand(String command);
 String getDeviceIdString();
 void sendResponse(String code, String payload);
 void onDataSent(const uint8_t *mac_addr, esp_now_send_status_t status);
-void onDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len);
+void onDataRecv(const esp_now_recv_info *info, const uint8_t *incomingData, int len);
 
 // --- Setup ---
 void setup()
@@ -192,7 +193,7 @@ void setupEspNow()
   esp_now_register_recv_cb(onDataRecv);
 
   // Add broadcast peer
-  memcpy(broadcastPeer.peer_addr, &broadcastAddress, 6);
+  memcpy(broadcastPeer.peer_addr, broadcastAddress, 6);
   broadcastPeer.channel = 0;
   broadcastPeer.encrypt = false;
 
@@ -401,7 +402,7 @@ void onDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
   // Optional: log if data was sent successfully
 }
 
-void onDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
+void onDataRecv(const esp_now_recv_info *info, const uint8_t *incomingData, int len)
 {
   char buffer[len + 1];
   memcpy(buffer, incomingData, len);
