@@ -11,13 +11,23 @@ import { SerialController } from 'esp-controller';
 import * as Esp from '../models/esp.model';
 import * as Plant from '../models/plant.model';
 
+/**
+ * Returns a promise with a timeout for set milliseconds.
+ * @param ms milliseconds to wait
+ * @returns Promise that resolves after set ms.
+ */
+export function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+
 @Injectable({
   providedIn: 'root',
 })
 export class EspService {
-  private readonly controller = new SerialController();
+  readonly controller = new SerialController();
 
-  // --- State Signals for a Single Device ---
+  // --- State Signals for a Plant Device ---
   readonly connected = signal(false);
   readonly deviceId = signal<string | null>(null);
   readonly deviceName = signal<string | null>(null);
@@ -39,7 +49,8 @@ export class EspService {
       await Esp.connectToDevice(this.controller);
       this.connected.set(true);
       this.startResponseListener();
-      this.getDeviceInfo();
+      await sleep(5000);
+      await this.getDeviceInfo();
       console.log('Connection successful.');
     } catch (error) {
       console.error('Connection failed:', error);
@@ -59,13 +70,12 @@ export class EspService {
   }
 
   // --- Command Methods ---
-
-  public getDeviceInfo() {
-    this.sendCommand(Plant.PlantCommand.GET_DEVICE_ID);
-    this.sendCommand(Plant.PlantCommand.GET_DEVICE_NAME);
-    this.sendCommand(Plant.PlantCommand.GET_PLANT_NAME);
-    this.sendCommand(Plant.PlantCommand.GET_VERSION);
-    this.sendCommand(Plant.PlantCommand.GET_CURRENT_VALUES);
+  public async getDeviceInfo() {
+    await this.sendCommand(Plant.PlantCommand.GET_DEVICE_ID);
+    await this.sendCommand(Plant.PlantCommand.GET_DEVICE_NAME);
+    await this.sendCommand(Plant.PlantCommand.GET_PLANT_NAME);
+    await this.sendCommand(Plant.PlantCommand.GET_VERSION);
+    await this.sendCommand(Plant.PlantCommand.GET_CURRENT_VALUES);
   }
 
   public setPlantName(name: string) {
@@ -88,14 +98,13 @@ export class EspService {
   }
 
   // --- Private Helpers ---
-
-  private sendCommand(cmd: Plant.PlantCommand, payload = '') {
+  private async sendCommand(cmd: Plant.PlantCommand, payload = '') {
     if (!this.connected()) {
       console.warn('Not connected. Cannot send command.');
       return;
     }
     const commandString = Plant.createCommandString(cmd, payload);
-    this.controller.writeToConnection(new TextEncoder().encode(commandString));
+    await this.controller.writeToConnection(new TextEncoder().encode(commandString));
     console.log(`Sent: ${commandString.trim()}`);
   }
 
@@ -111,8 +120,7 @@ export class EspService {
   private handleResponse(rawResponse: string) {
     const response = Plant.parseResponse(rawResponse);
     if (!response) {
-      // Might be a standard ESP_LOG, not a protocol response.
-      // console.log(`ESP_LOG: ${rawResponse}`);
+      console.warn('Received invalid response:', rawResponse);
       return;
     }
 
@@ -143,7 +151,6 @@ export class EspService {
         case Plant.PlantCommand.GET_DEVICE_ID:
             this.deviceId.set(response.payload);
             break;
-        // Add other command handlers (e.g., GET_HISTORY) here
       }
     } else {
       console.error(`Device Error (Command: ${response.command}): ${response.payload}`);

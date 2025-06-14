@@ -6,7 +6,7 @@
  * and reading serial data.
  */
 
-import { SerialController, Partition } from 'esp-controller';
+import { SerialController, Partition, ESPImage, BinFilePartition, PartitionTable, PartitionType, DataPartitionSubType, NVSPartition } from 'esp-controller';
 
 /**
  * Opens the serial port connection to the ESP32.
@@ -23,6 +23,7 @@ export async function connectToDevice(controller: SerialController): Promise<voi
  */
 export async function disconnectFromDevice(controller: SerialController): Promise<void> {
   if (controller.connection.connected) {
+    await controller.connection.readable?.cancel('Cancelled by the user');
     await controller.disconnect();
   }
 }
@@ -64,13 +65,15 @@ export async function flashFirmware(controller: SerialController): Promise<void>
   }
   console.log('Starting firmware flash...');
 
-  // This is a placeholder. A real implementation would fetch binary files
-  // and call controller.flash() with the correct partitions and addresses.
-  // Example:
-  // const bootloader = await fetch('/firmware/bootloader.bin').then(r => r.arrayBuffer());
-  // await controller.flash([{ data: bootloader, address: 0x1000, filename: 'bootloader.bin' }]);
-  await new Promise((resolve) => setTimeout(resolve, 3000));
-  console.log('Firmware flashing process completed.');
+ await controller.sync();
+    try {
+      const image = createImage();
+      await loadPartitions(image.partitions);
+      await controller.flashImage(image);
+    } catch (error: unknown) {
+      console.error("Flashing failed:", error);
+      throw error;
+    }
 }
 
 /**
@@ -86,4 +89,51 @@ export function onFlashProgress(
     const event = e as CustomEvent<{ progress: number; partition: Partition }>;
     onProgress(event.detail.progress, event.detail.partition);
   });
+}
+
+function createImage(): ESPImage {
+  const image = new ESPImage();
+
+  const bootloader = new BinFilePartition(0x1000, "binaries/happy-plant.ino.bootloader.bin");
+  const app = new BinFilePartition(0x10000, "binaries/happy-plant.ino.bin");
+  const partitionTable = new PartitionTable([
+    {
+      name: "nvs",
+      type: PartitionType.DATA,
+      subType: DataPartitionSubType.NVS,
+      offset: 0x9000,
+      size: 0x6000,
+    },
+    {
+      name: "factory",
+      type: PartitionType.APP,
+      subType: 0x00, // factory
+      offset: 0x10000,
+      size: 0x100000, // 1MB
+    },
+  ]);
+
+  const nvsPartition = new NVSPartition(0x9000, "nvs.bin", 0x6000);
+  nvsPartition.writeEntry("plant", "last_watered", "today");
+
+  image.addPartition(bootloader);
+  image.addPartition(app);
+  image.addPartition(partitionTable);
+  image.addPartition(nvsPartition);
+
+  return image;
+}
+
+async function loadPartitions(partitions: Partition[]) {
+  for (const partition of partitions) {
+    // Check if the partition is a BinFilePartition and needs loading
+    if (partition instanceof BinFilePartition) {
+      console.log(`Loading ${partition.filename}...`);
+      const success = await partition.load();
+      if (!success) {
+        throw new Error(`Failed to load ${partition.filename}`);
+      }
+      console.log(`${partition.filename} loaded successfully.`);
+    }
+  }
 }
