@@ -119,9 +119,8 @@ export class EspService {
   }
 
   async disconnect() {
-    // await this.controller.closePort();
-    await this.flashFirmware();
-    this.startSerialLogReader(this.controller)
+    await this.controller.disconnect();
+    this.connected.set(this.controller.connection.connected);
   }
 
 }
