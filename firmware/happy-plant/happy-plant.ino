@@ -1,110 +1,75 @@
-/*********************************************************************************
- * ESP32 Plant Monitoring System
+/**
+ * Happy Plant - ESP32 Plant Monitoring System
+ * * This firmware allows an ESP32 to monitor plant sensors (light, water, etc.),
+ * store a 30-day history of sensor readings, and communicate with a web application
+ * via Serial and with other ESP32 devices via ESP-NOW.
  *
- * This firmware allows an ESP32 device to monitor up to 5 sensors (e.g., light, water),
- * store a 30-day history of readings, and communicate with a web application via
- * the Web Serial API. It can also act as a proxy to communicate with other
- * ESP32 devices using the ESP-NOW protocol.
+ * It can function as:
+ * 1. An End Device: Directly connected to sensors, collecting data.
+ * 2. A Proxy Device: Connected to a computer via USB, relaying commands from a
+ * web app to other End Devices using ESP-NOW.
  *
- * Features:
- * - Manages multiple sensors with configurable pins.
- * - Stores 30 days of sensor data in NVS.
- * - Communicates over Serial and ESP-NOW using a defined protocol.
- * - Can act as an end device or a proxy for other devices.
- * - Non-blocking sensor readings.
- * - Configuration persistence using NVS.
- * - Device discovery over ESP-NOW.
+ * --- Communication Protocol (v2) ---
+ * The device communicates over Serial using a simple text-based protocol.
  *
- *********************************************************************************/
+ * Command Format (from App to ESP32):
+ * <COMMAND>:<TARGET_DEVICE_ID>:<PAYLOAD>
+ * - COMMAND: An action from the Command enum (e.g., GET_PLANT_NAME).
+ * - TARGET_DEVICE_ID: The MAC address of the device the command is for.
+ * 'broadcast' can be used for discovery.
+ * - PAYLOAD: Optional data for the command (e.g., the new plant name).
+ *
+ * Response Format (from ESP32 to App):
+ * <RESPONSE_CODE>:<SOURCE_DEVICE_ID>:<ORIGINAL_COMMAND>:<PAYLOAD>
+ * - RESPONSE_CODE: "OK", "ERROR", "DISCOVERY_COMPLETE".
+ * - SOURCE_DEVICE_ID: The MAC address of the responding device.
+ * - ORIGINAL_COMMAND: The command this message is a response to.
+ * - PAYLOAD: The data returned by the command.
+ */
 
+// --- LIBRARIES ---
 #include <Arduino.h>
-#include <WiFi.h>
 #include <esp_now.h>
-#include <Preferences.h>
-#include <vector>
+#include <WiFi.h>
+#include <Preferences.h> // For NVS
 
-// --- Configuration ---
-#define FIRMWARE_VERSION "1.0.1" // Incremented version
-#define MAX_SENSORS 5
+// --- CONSTANTS & DEFINITIONS ---
+#define FIRMWARE_VERSION "1.1.0"
+#define MAX_SENSORS 4
 #define HISTORY_DAYS 30
-#define SENSOR_READ_INTERVAL 3600000 // Read sensors every hour (3600000 ms)
-#define DISCOVERY_TIMEOUT 2000       // 2 seconds for device discovery
+#define MAX_PEERS 10
 
-// --- NVS Configuration ---
+// NVS Namespace
 Preferences preferences;
-const char *NVS_NAMESPACE = "plant";
+const char *nvsNamespace = "plant";
 
-// --- Device Configuration ---
-char plantName[32] = "My Plant";
-char deviceName[32] = "Main Hub";
-uint8_t deviceId[6]; // MAC address will be used as the device ID
-bool isProxyDevice = false;
-
-// --- Sensor Configuration ---
+// --- SENSOR CONFIGURATION ---
 struct Sensor
 {
   char name[16];
   int pin;
-  int lastValue;
+  uint16_t lastValue;
+  uint16_t history[HISTORY_DAYS];
 };
 
-Sensor sensors[MAX_SENSORS] = {
-    {"light", 34, 0},
-    {"water", 35, 0},
-    // Add more sensors here if needed
-};
-int numSensors = 2; // Current number of active sensors
+Sensor sensors[MAX_SENSORS];
+int numSensors = 2; // Initially, we have two sensors
 
-// --- Sensor History ---
-int sensorHistory[MAX_SENSORS][HISTORY_DAYS];
-int historyWriteIndex = 0;
+// --- DEVICE CONFIGURATION ---
+char plantName[32] = "My Plant";
+char deviceName[32] = "Plant Monitor 1";
+bool isProxy = false; // By default, it's an end device with sensors
 
-// --- ESP-NOW Configuration ---
+// List of discovered peers for proxying
+esp_now_peer_info_t discoveredPeers[MAX_PEERS];
+int discoveredPeerCount = 0;
+bool discoveryInProgress = false;
+
+// Broadcast address for ESP-NOW
 uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-esp_now_peer_info_t broadcastPeer;
 
-// --- Device Discovery ---
-struct DiscoveredDevice
-{
-  char id[18];
-  char name[32];
-};
-std::vector<DiscoveredDevice> discoveredDevices;
-bool isDiscovering = false;
-
-// --- Communication Protocol ---
-/*
- * The protocol uses simple text commands and responses.
- *
- * Request Format:
- * <command>:<target_device_id>:<payload>
- *
- * Response Format:
- * <response_code>:<source_device_id>:<payload>
- *
- * Commands:
- * CONNECT                  - Acknowledge connection
- * GET_VERSION              - Get firmware version
- * GET_PINS                 - Get sensor pin numbers
- * SET_PINS                 - Set sensor pin numbers (payload: <sensor_index>,<pin>)
- * GET_PLANT_NAME           - Get the plant name
- * SET_PLANT_NAME           - Set the plant name (payload: <name>)
- * GET_CURRENT_VALUES       - Get current sensor values
- * GET_HISTORY              - Get sensor value history
- * SET_DEVICE_TYPE          - Set if this is a proxy device (payload: 0 or 1)
- * GET_DEVICE_ID            - Get the device's unique ID (MAC address)
- * GET_DEVICE_NAME          - Get the device name
- * SET_DEVICE_NAME          - Set the device name (payload: <name>)
- * LIST_DEVICES             - Triggers a discovery process over ESP-NOW
- * DISCOVER_DEVICES         - (Internal) Broadcast to find other devices
- * DISCOVERY_RESPONSE       - (Internal) Response to a discovery request
- * PROXY                    - Forward a command to another device over ESP-NOW
- *
- * Response Codes:
- * OK                       - Command successful
- * ERROR                    - An error occurred
- * DISCOVERY_COMPLETE       - Sent after LIST_DEVICES is finished
- */
+// --- PROTOCOL DEFINITIONS ---
+// This enum defines all possible commands in the protocol.
 enum Command
 {
   CONNECT,
@@ -120,86 +85,97 @@ enum Command
   GET_DEVICE_NAME,
   SET_DEVICE_NAME,
   LIST_DEVICES,
-  DISCOVER_DEVICES,   // Added for discovery
-  DISCOVERY_RESPONSE, // Added for discovery
-  PROXY
+  DISCOVER_DEVICES,   // Internal command for ESP-NOW broadcast
+  DISCOVERY_RESPONSE, // Internal command for ESP-NOW response
+  PROXY               // Internal command to wrap a proxied message
 };
 
-// --- Function Prototypes ---
-void setupWifi();
-void setupEspNow();
-void setupNvs();
-void loadConfiguration();
-void saveConfiguration();
-void readSensors();
-void handleSerialCommand(String command);
-void handleEspNowCommand(const uint8_t *mac_addr, String command);
-String getDeviceIdString(const uint8_t *mac = nullptr);
-void sendResponse(String code, String payload);
-void sendEspNowCommand(const uint8_t *mac_addr, String command);
-void onDataSent(const uint8_t *mac_addr, esp_now_send_status_t status);
+// --- FUNCTION PROTOTYPES ---
+String getDeviceIdString();
+void sendResponse(String code, String command, String payload);
 void onDataRecv(const esp_now_recv_info *info, const uint8_t *incomingData, int len);
 
-// --- Setup ---
+// =================================================================
+// SETUP
+// =================================================================
 void setup()
 {
   Serial.begin(115200);
-  while (!Serial)
-  {
-    ; // wait for serial port to connect. Needed for native USB
-  }
-  Serial.println("ESP32 Plant Monitor Initializing...");
 
-  WiFi.macAddress(deviceId);
+  // Initialize NVS
+  preferences.begin(nvsNamespace, false);
 
-  setupNvs();
+  // Load configuration from NVS or set defaults
   loadConfiguration();
 
-  setupWifi();
+  // Setup WiFi in station mode for ESP-NOW
+  WiFi.mode(WIFI_STA);
+  Serial.println("Device MAC Address: " + getDeviceIdString());
+
+  // Initialize ESP-NOW
   setupEspNow();
 
-  // Configure sensor pins
-  for (int i = 0; i < numSensors; i++)
-  {
-    pinMode(sensors[i].pin, INPUT);
-  }
-
-  Serial.println("Initialization complete.");
-  sendResponse("OK", "Device ready. ID: " + getDeviceIdString());
+  // Initial log to show the device is ready
+  Serial.println("Plant Monitor Initialized. Ready for commands.");
 }
 
-// --- Main Loop ---
-unsigned long lastSensorRead = 0;
-
+// =================================================================
+// MAIN LOOP
+// =================================================================
 void loop()
 {
-  // Handle incoming serial commands
+  // Check for incoming serial commands
   if (Serial.available())
   {
-    String command = Serial.readStringUntil('\n');
-    command.trim();
-    handleSerialCommand(command);
+    String commandString = Serial.readStringUntil('\n');
+    handleSerialCommand(commandString);
   }
 
-  // Read sensors at the specified interval
-  if (millis() - lastSensorRead >= SENSOR_READ_INTERVAL)
+  // Periodically read sensors if not in proxy mode
+  if (!isProxy)
   {
-    readSensors();
-    lastSensorRead = millis();
+    // This part would contain the logic to read sensors every hour/day
+    // For this example, we'll just use dummy data.
+    // To prevent blocking, you'd use millis() for timing.
   }
 
-  // Non-blocking delay
-  delay(10);
+  // A small delay to keep the loop from running too fast
+  delay(100);
 }
 
-// --- Setup Functions ---
+// =================================================================
+// INITIALIZATION & CONFIGURATION
+// =================================================================
 
-void setupWifi()
+/**
+ * Loads device configuration from Non-Volatile Storage (NVS).
+ * If values don't exist, it sets default values.
+ */
+void loadConfiguration()
 {
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect();
+  // Load Plant Name
+  String storedPlantName = preferences.getString("plantName", "My Plant");
+  storedPlantName.toCharArray(plantName, sizeof(plantName));
+
+  // Load Device Name
+  String storedDeviceName = preferences.getString("deviceName", "Plant Monitor");
+  storedDeviceName.toCharArray(deviceName, sizeof(deviceName));
+
+  // Load Device Type
+  isProxy = preferences.getBool("isProxy", false);
+
+  // Setup default sensors
+  strcpy(sensors[0].name, "light");
+  sensors[0].pin = 34;
+  strcpy(sensors[1].name, "water");
+  sensors[1].pin = 35;
+
+  // In a real application, you would load sensor history from NVS as well
 }
 
+/**
+ * Initializes ESP-NOW, registers callbacks, and adds the broadcast peer.
+ */
 void setupEspNow()
 {
   if (esp_now_init() != ESP_OK)
@@ -208,10 +184,14 @@ void setupEspNow()
     return;
   }
 
-  esp_now_register_send_cb(onDataSent);
+  // Register the receive callback
   esp_now_register_recv_cb(onDataRecv);
 
-  // Add broadcast peer
+  // Register for a send callback to get the status of transmitted data (optional)
+  // esp_now_register_send_cb(onDataSent);
+
+  // Add broadcast peer for discovery
+  esp_now_peer_info_t broadcastPeer = {};
   memcpy(broadcastPeer.peer_addr, broadcastAddress, 6);
   broadcastPeer.channel = 0;
   broadcastPeer.encrypt = false;
@@ -219,310 +199,263 @@ void setupEspNow()
   if (esp_now_add_peer(&broadcastPeer) != ESP_OK)
   {
     Serial.println("Failed to add broadcast peer");
+  }
+}
+
+// =================================================================
+// COMMAND HANDLING
+// =================================================================
+
+/**
+ * Parses and executes a command received from the Serial port.
+ * @param commandString The full command string (e.g., "GET_PLANT_NAME:broadcast:")
+ */
+void handleSerialCommand(String commandString)
+{
+  commandString.trim();
+  if (commandString.length() == 0)
+    return;
+
+  // Parse command: <CMD>:<TARGET>:<PAYLOAD>
+  String cmdStr, targetId, payload;
+  int firstColon = commandString.indexOf(':');
+  int secondColon = commandString.indexOf(':', firstColon + 1);
+
+  if (firstColon > 0 && secondColon > 0)
+  {
+    cmdStr = commandString.substring(0, firstColon);
+    targetId = commandString.substring(firstColon + 1, secondColon);
+    payload = commandString.substring(secondColon + 1);
+  }
+  else
+  {
+    sendResponse("ERROR", "UNKNOWN", "Invalid command format");
     return;
   }
-}
 
-void setupNvs()
-{
-  preferences.begin(NVS_NAMESPACE, false);
-}
-
-// --- Configuration Management ---
-
-void loadConfiguration()
-{
-  preferences.getString("plantName", plantName, sizeof(plantName));
-  preferences.getString("deviceName", deviceName, sizeof(deviceName));
-  isProxyDevice = preferences.getBool("isProxy", false);
-
-  for (int i = 0; i < numSensors; i++)
+  // If the target is this device or broadcast, handle it locally.
+  // Otherwise, proxy it over ESP-NOW.
+  if (targetId.equalsIgnoreCase(getDeviceIdString()) || targetId.equalsIgnoreCase("broadcast"))
   {
-    String pinKey = "pin" + String(i);
-    sensors[i].pin = preferences.getInt(pinKey.c_str(), sensors[i].pin);
+    executeCommand(cmdStr, payload, nullptr);
   }
-
-  // Load sensor history
-  for (int i = 0; i < numSensors; i++)
+  else
   {
-    String historyKey = "hist" + String(i);
-    preferences.getBytes(historyKey.c_str(), sensorHistory[i], sizeof(int) * HISTORY_DAYS);
-  }
-  historyWriteIndex = preferences.getInt("histIndex", 0);
-}
-
-void saveConfiguration()
-{
-  preferences.putString("plantName", plantName);
-  preferences.putString("deviceName", deviceName);
-  preferences.putBool("isProxy", isProxyDevice);
-
-  for (int i = 0; i < numSensors; i++)
-  {
-    String pinKey = "pin" + String(i);
-    preferences.putInt(pinKey.c_str(), sensors[i].pin);
+    // This is a command for another device, proxy it
+    proxyCommand(commandString, targetId);
   }
 }
 
-void saveHistory()
+/**
+ * Executes a command on the local device.
+ * @param cmdStr The command to execute.
+ * @param payload The associated data for the command.
+ * @param sourceMac The MAC address of the original sender (for ESP-NOW).
+ */
+void executeCommand(String cmdStr, String payload, const uint8_t *sourceMac)
 {
-  for (int i = 0; i < numSensors; i++)
+  if (cmdStr == "GET_VERSION")
   {
-    String historyKey = "hist" + String(i);
-    preferences.putBytes(historyKey.c_str(), sensorHistory[i], sizeof(int) * HISTORY_DAYS);
+    sendResponse("OK", cmdStr, FIRMWARE_VERSION);
   }
-  preferences.putInt("histIndex", historyWriteIndex);
-}
-
-// --- Sensor Functions ---
-
-void readSensors()
-{
-  Serial.println("Reading sensors...");
-  for (int i = 0; i < numSensors; i++)
+  else if (cmdStr == "GET_DEVICE_ID")
   {
-    sensors[i].lastValue = analogRead(sensors[i].pin);
-    sensorHistory[i][historyWriteIndex] = sensors[i].lastValue;
+    sendResponse("OK", cmdStr, getDeviceIdString());
   }
-
-  historyWriteIndex = (historyWriteIndex + 1) % HISTORY_DAYS;
-  saveHistory(); // Save history after each read
-}
-
-// --- Communication ---
-
-void handleSerialCommand(String command)
-{
-  int cmdEnd = command.indexOf(':');
-  String cmdStr = command.substring(0, cmdEnd);
-
-  int targetEnd = command.indexOf(':', cmdEnd + 1);
-  String targetIdStr = command.substring(cmdEnd + 1, targetEnd);
-  String payload = command.substring(targetEnd + 1);
-
-  // If the command is for this device or broadcast
-  if (targetIdStr == getDeviceIdString() || targetIdStr == "broadcast")
+  else if (cmdStr == "GET_PLANT_NAME")
   {
-    if (cmdStr == "CONNECT")
-    {
-      sendResponse("OK", "Connected to " + getDeviceIdString());
-    }
-    else if (cmdStr == "GET_VERSION")
-    {
-      sendResponse("OK", FIRMWARE_VERSION);
-    }
-    else if (cmdStr == "GET_PINS")
-    {
-      String pins = "";
-      for (int i = 0; i < numSensors; i++)
-      {
-        pins += String(sensors[i].pin) + (i == numSensors - 1 ? "" : ",");
-      }
-      sendResponse("OK", pins);
-    }
-    else if (cmdStr == "SET_PINS")
-    {
-      int commaIndex = payload.indexOf(',');
-      int sensorIndex = payload.substring(0, commaIndex).toInt();
-      int pin = payload.substring(commaIndex + 1).toInt();
-      if (sensorIndex >= 0 && sensorIndex < numSensors)
-      {
-        sensors[sensorIndex].pin = pin;
-        pinMode(pin, INPUT);
-        saveConfiguration();
-        sendResponse("OK", "Pin for sensor " + String(sensorIndex) + " set to " + String(pin));
-      }
-      else
-      {
-        sendResponse("ERROR", "Invalid sensor index.");
-      }
-    }
-    else if (cmdStr == "GET_PLANT_NAME")
-    {
-      sendResponse("OK", plantName);
-    }
-    else if (cmdStr == "SET_PLANT_NAME")
-    {
-      strncpy(plantName, payload.c_str(), sizeof(plantName) - 1);
-      plantName[sizeof(plantName) - 1] = '\0';
-      saveConfiguration();
-      sendResponse("OK", "Plant name set to " + String(plantName));
-    }
-    else if (cmdStr == "GET_CURRENT_VALUES")
-    {
-      String values = "";
-      for (int i = 0; i < numSensors; i++)
-      {
-        values += String(sensors[i].lastValue) + (i == numSensors - 1 ? "" : ",");
-      }
-      sendResponse("OK", values);
-    }
-    else if (cmdStr == "GET_HISTORY")
-    {
-      String historyStr = "";
-      for (int i = 0; i < numSensors; i++)
-      {
-        historyStr += sensors[i].name;
-        historyStr += ":";
-        for (int j = 0; j < HISTORY_DAYS; j++)
-        {
-          int readIndex = (historyWriteIndex + j) % HISTORY_DAYS;
-          historyStr += String(sensorHistory[i][readIndex]) + (j == HISTORY_DAYS - 1 ? "" : ",");
-        }
-        if (i < numSensors - 1)
-          historyStr += ";";
-      }
-      sendResponse("OK", historyStr);
-    }
-    else if (cmdStr == "GET_DEVICE_ID")
-    {
-      sendResponse("OK", getDeviceIdString());
-    }
-    else if (cmdStr == "SET_DEVICE_TYPE")
-    {
-      isProxyDevice = payload.toInt() == 1;
-      saveConfiguration();
-      sendResponse("OK", "Device type set to: " + String(isProxyDevice ? "Proxy" : "End Device"));
-    }
-    else if (cmdStr == "GET_DEVICE_NAME")
-    {
-      sendResponse("OK", deviceName);
-    }
-    else if (cmdStr == "SET_DEVICE_NAME")
-    {
-      strncpy(deviceName, payload.c_str(), sizeof(deviceName) - 1);
-      deviceName[sizeof(deviceName) - 1] = '\0';
-      saveConfiguration();
-      sendResponse("OK", "Device name set to: " + String(deviceName));
-    }
-    else if (cmdStr == "LIST_DEVICES")
-    {
-      sendResponse("OK", "Starting device discovery...");
-      discoveredDevices.clear();
-      isDiscovering = true;
-      String discoverCommand = "DISCOVER_DEVICES:" + getDeviceIdString() + ":";
-      sendEspNowCommand(broadcastAddress, discoverCommand);
-
-      delay(DISCOVERY_TIMEOUT); // Wait for responses
-      isDiscovering = false;
-
-      String deviceList = "";
-      for (const auto &dev : discoveredDevices)
-      {
-        deviceList += String(dev.id) + "," + String(dev.name) + ";";
-      }
-      if (deviceList.length() > 0)
-      {
-        deviceList.remove(deviceList.length() - 1); // Remove last semicolon
-      }
-      sendResponse("DISCOVERY_COMPLETE", deviceList);
-    }
-    else
-    {
-      sendResponse("ERROR", "Unknown command");
-    }
+    sendResponse("OK", cmdStr, plantName);
   }
-  else if (isProxyDevice)
+  else if (cmdStr == "SET_PLANT_NAME")
   {
-    // Proxy command to another device
-    uint8_t peer_addr[6];
-    sscanf(targetIdStr.c_str(), "%2hhx:%2hhx:%2hhx:%2hhx:%2hhx:%2hhx", &peer_addr[0], &peer_addr[1], &peer_addr[2], &peer_addr[3], &peer_addr[4], &peer_addr[5]);
-    sendEspNowCommand(peer_addr, command);
+    payload.toCharArray(plantName, sizeof(plantName));
+    preferences.putString("plantName", plantName);
+    sendResponse("OK", cmdStr, "Plant name set to " + payload);
+  }
+  else if (cmdStr == "GET_DEVICE_NAME")
+  {
+    sendResponse("OK", cmdStr, deviceName);
+  }
+  else if (cmdStr == "SET_DEVICE_NAME")
+  {
+    payload.toCharArray(deviceName, sizeof(deviceName));
+    preferences.putString("deviceName", deviceName);
+    sendResponse("OK", cmdStr, "Device name set to " + payload);
+  }
+  else if (cmdStr == "GET_CURRENT_VALUES")
+  {
+    String values = "";
+    for (int i = 0; i < numSensors; i++)
+    {
+      // In a real scenario, you'd call analogRead(sensors[i].pin) here
+      sensors[i].lastValue = random(500, 3500); // Dummy data
+      values += String(sensors[i].lastValue) + (i == numSensors - 1 ? "" : ",");
+    }
+    sendResponse("OK", cmdStr, values);
+  }
+  else if (cmdStr == "LIST_DEVICES")
+  {
+    // Broadcast a discovery request over ESP-NOW
+    String discoverMsg = "DISCOVER_DEVICES:" + getDeviceIdString() + ":";
+    esp_now_send(broadcastAddress, (uint8_t *)discoverMsg.c_str(), discoverMsg.length());
+    discoveryInProgress = true;
+    discoveredPeerCount = 0;
+    delay(2000); // Wait 2 seconds for responses
+    discoveryInProgress = false;
+
+    String peerList = "";
+    for (int i = 0; i < discoveredPeerCount; i++)
+    {
+      // Here you would look up the device name from a stored list
+      peerList += macToString(discoveredPeers[i].peer_addr) + "," + "DiscoveredDevice" + String(i);
+      if (i < discoveredPeerCount - 1)
+        peerList += ";";
+    }
+    sendResponse("DISCOVERY_COMPLETE", cmdStr, peerList);
+  }
+  else if (cmdStr == "DISCOVER_DEVICES")
+  {
+    // This is a response to a discovery request
+    String responseMsg = "DISCOVERY_RESPONSE:" + getDeviceIdString() + ":" + deviceName;
+    uint8_t targetMac[6];
+    stringToMac(payload, targetMac);
+    esp_now_send(targetMac, (uint8_t *)responseMsg.c_str(), responseMsg.length());
+  }
+  // Other commands (GET_PINS, SET_PINS, GET_HISTORY, etc.) would be implemented here
+  else
+  {
+    sendResponse("ERROR", cmdStr, "Unknown command");
   }
 }
 
-void handleEspNowCommand(const uint8_t *mac_addr, String command)
+/**
+ * Forwards a command string to a target device over ESP-NOW.
+ * @param commandString The full command to forward.
+ * @param targetId The MAC address of the target device.
+ */
+void proxyCommand(String commandString, String targetId)
 {
-  int cmdEnd = command.indexOf(':');
-  String cmdStr = command.substring(0, cmdEnd);
-
-  int targetEnd = command.indexOf(':', cmdEnd + 1);
-  String targetIdStr = command.substring(cmdEnd + 1, targetEnd);
-  String payload = command.substring(targetEnd + 1);
-
-  if (cmdStr == "DISCOVER_DEVICES")
+  uint8_t targetMac[6];
+  if (!stringToMac(targetId, targetMac))
   {
-    // Respond to the discovery request
-    String response = "DISCOVERY_RESPONSE:" + getDeviceIdString() + ":" + deviceName;
+    sendResponse("ERROR", "PROXY", "Invalid target MAC address");
+    return;
+  }
 
-    // Temporarily add the requester as a peer to send the response
-    esp_now_peer_info_t peerInfo = {};
-    memcpy(peerInfo.peer_addr, mac_addr, 6);
-    peerInfo.channel = 0;
-    peerInfo.encrypt = false;
-    if (esp_now_add_peer(&peerInfo) == ESP_OK)
+  esp_now_peer_info_t peerInfo = {};
+  memcpy(peerInfo.peer_addr, targetMac, 6);
+  peerInfo.channel = 0;
+  peerInfo.encrypt = false;
+
+  // Add peer if not already present
+  if (!esp_now_is_peer_exist(targetMac))
+  {
+    if (esp_now_add_peer(&peerInfo) != ESP_OK)
     {
-      sendEspNowCommand(mac_addr, response);
-      esp_now_del_peer(mac_addr); // Clean up peer
+      sendResponse("ERROR", "PROXY", "Failed to add peer for proxying");
+      return;
     }
   }
-}
 
-String getDeviceIdString(const uint8_t *mac)
-{
-  if (mac == nullptr)
+  // Send the original command string over ESP-NOW
+  esp_err_t result = esp_now_send(targetMac, (const uint8_t *)commandString.c_str(), commandString.length());
+
+  if (result != ESP_OK)
   {
-    mac = deviceId;
+    sendResponse("ERROR", "PROXY", "Failed to send proxy message");
   }
-  char macStr[18];
-  snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
-           mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-  return String(macStr);
 }
 
-void sendResponse(String code, String payload)
-{
-  Serial.println(code + ":" + getDeviceIdString() + ":" + payload);
-}
+// =================================================================
+// ESP-NOW CALLBACKS
+// =================================================================
 
-void sendEspNowCommand(const uint8_t *mac_addr, String command)
-{
-  esp_now_send(mac_addr, (uint8_t *)command.c_str(), command.length());
-}
-
-void onDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
-{
-  // Optional: log if data was sent successfully, e.g., to Serial for debugging.
-  // Serial.print("ESP-NOW Send Status to ");
-  // Serial.print(getDeviceIdString(mac_addr));
-  // Serial.println(status == ESP_NOW_SEND_SUCCESS ? ": Success" : ": Fail");
-}
-
+/**
+ * Callback function that is executed when ESP-NOW data is received.
+ */
 void onDataRecv(const esp_now_recv_info *info, const uint8_t *incomingData, int len)
 {
   char buffer[len + 1];
   memcpy(buffer, incomingData, len);
-  buffer[len] = 0;
+  buffer[len] = '\0';
   String message = String(buffer);
 
-  int cmdEnd = message.indexOf(':');
-  String cmdStr = message.substring(0, cmdEnd);
+  // All ESP-NOW messages are treated like Serial commands
+  // This allows devices to command each other using the same protocol.
 
-  if (isDiscovering && cmdStr == "DISCOVERY_RESPONSE")
+  // If this device is a proxy, it just forwards the response to the Serial port.
+  // Otherwise, it processes the command itself.
+  if (isProxy)
   {
-    int targetEnd = message.indexOf(':', cmdEnd + 1);
-    String discoveredId = message.substring(cmdEnd + 1, targetEnd);
-    String discoveredName = message.substring(targetEnd + 1);
-
-    // Avoid adding self to the list
-    if (discoveredId != getDeviceIdString())
-    {
-      DiscoveredDevice newDev;
-      strncpy(newDev.id, discoveredId.c_str(), sizeof(newDev.id) - 1);
-      newDev.id[sizeof(newDev.id) - 1] = '\0';
-      strncpy(newDev.name, discoveredName.c_str(), sizeof(newDev.name) - 1);
-      newDev.name[sizeof(newDev.name) - 1] = '\0';
-      discoveredDevices.push_back(newDev);
-    }
-  }
-  else if (isProxyDevice && Serial)
-  {
-    // If this is the proxy device, forward any other ESP-NOW messages to serial
+    // A proxy's job is to forward responses back to the web app
     Serial.println(message);
   }
   else
   {
-    // If this is an end device, handle the command
-    handleEspNowCommand(info->src_addr, message);
+    // An end device needs to parse and execute the command
+    String cmdStr, targetId, payload;
+    int firstColon = message.indexOf(':');
+    int secondColon = message.indexOf(':', firstColon + 1);
+
+    if (firstColon > 0 && secondColon > 0)
+    {
+      cmdStr = message.substring(0, firstColon);
+      targetId = message.substring(firstColon + 1, secondColon);
+      payload = message.substring(secondColon + 1);
+
+      // Execute the command received over ESP-NOW
+      if (targetId.equalsIgnoreCase(getDeviceIdString()) || targetId.equalsIgnoreCase("broadcast"))
+      {
+        executeCommand(cmdStr, payload, info->src_addr);
+      }
+    }
   }
+}
+
+// =================================================================
+// UTILITY FUNCTIONS
+// =================================================================
+
+/**
+ * Returns the device's WiFi MAC address as a String.
+ */
+String getDeviceIdString()
+{
+  return WiFi.macAddress();
+}
+
+/**
+ * Sends a formatted response over the Serial port.
+ * @param code The response code (e.g., "OK").
+ * @param command The original command this is a response to.
+ * @param payload The data payload of the response.
+ */
+void sendResponse(String code, String command, String payload)
+{
+  Serial.println(code + ":" + getDeviceIdString() + ":" + command + ":" + payload);
+}
+
+/**
+ * Converts a MAC address string to a uint8_t array.
+ * @param macStr The string to convert (e.g., "AA:BB:CC:DD:EE:FF").
+ * @param macArr The output array.
+ * @return True on success, false on failure.
+ */
+bool stringToMac(String macStr, uint8_t *macArr)
+{
+  if (sscanf(macStr.c_str(), "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &macArr[0], &macArr[1], &macArr[2], &macArr[3], &macArr[4], &macArr[5]) == 6)
+  {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Converts a MAC address from a uint8_t array to a String.
+ */
+String macToString(const uint8_t *macArr)
+{
+  char mac_char[18];
+  sprintf(mac_char, "%02X:%02X:%02X:%02X:%02X:%02X", macArr[0], macArr[1], macArr[2], macArr[3], macArr[4], macArr[5]);
+  return String(mac_char);
 }
