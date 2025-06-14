@@ -9,7 +9,7 @@
  * to only occur once per hour, reducing flash memory wear. The logic for
  * reading sensor values is now separate from storing them in history.
  *
- * --- Communication Protocol (v3 - Simplified) ---
+ * --- Communication Protocol (v4 - Refined) ---
  * The device communicates over Serial using a simple text-based protocol.
  *
  * Command Format (from App to ESP32):
@@ -23,6 +23,57 @@
  * - SOURCE_DEVICE_ID: The MAC address of the responding device.
  * - ORIGINAL_COMMAND: The command this message is a response to.
  * - PAYLOAD: The data returned by the command.
+ *
+ * Examples:
+ * Note: <DEVICE_ID> is the MAC address of the ESP32 (e.g., 1A2B3C4D5E6F).
+
+CONNECT: Handshake to confirm the device is ready.
+Command: CONNECT:
+Response: OK:<DEVICE_ID>:CONNECT:Ready
+
+GET_VERSION: Get the current firmware version.
+Command: GET_VERSION:
+Response: OK:<DEVICE_ID>:GET_VERSION:1.5.0-refined
+
+GET_DEVICE_ID: Get the unique device ID (MAC address).
+Command: GET_DEVICE_ID:
+Response: OK:<DEVICE_ID>:GET_DEVICE_ID:<DEVICE_ID>
+
+GET_PLANT_NAME: Get the stored name of the plant.
+Command: GET_PLANT_NAME:
+Response: OK:<DEVICE_ID>:GET_PLANT_NAME:My Plant
+
+SET_PLANT_NAME: Set a new name for the plant.
+Command: SET_PLANT_NAME:Fiddle Leaf Fig
+Response: OK:<DEVICE_ID>:SET_PLANT_NAME:Plant name set to Fiddle Leaf Fig
+
+GET_DEVICE_NAME: Get the stored name of the device itself.
+Command: GET_DEVICE_NAME:
+Response: OK:<DEVICE_ID>:GET_DEVICE_NAME:Plant Monitor
+
+SET_DEVICE_NAME: Set a new name for the device.
+Command: SET_DEVICE_NAME:Office Sensor 1
+Response: OK:<DEVICE_ID>:SET_DEVICE_NAME:Device name set to Office Sensor 1
+
+GET_PIN: Get the GPIO pin for a specific sensor.
+Command: GET_PIN:light
+Response: OK:<DEVICE_ID>:GET_PIN:36
+
+SET_PIN: Set a new GPIO pin for a specific sensor.
+Command: SET_PIN:water,33
+Response: OK:<DEVICE_ID>:SET_PIN:Pin for water updated to 33
+
+GET_CURRENT_VALUE: Get a live reading from a specific sensor.
+Command: GET_CURRENT_VALUE:light
+Response: OK:<DEVICE_ID>:GET_CURRENT_VALUE:2150
+
+GET_HISTORY: Get the 30-day reading history for a specific sensor.
+Command: GET_HISTORY:water
+Response: OK:<DEVICE_ID>:GET_HISTORY:1833,1845,1830,...,1900 (30 comma-separated values)
+
+READ_SENSORS: Force a sensor read and store the values to NVS history.
+Command: READ_SENSORS:
+Response: OK:<DEVICE_ID>:READ_SENSORS:Forced history update complete.
  */
 
 // --- LIBRARIES ---
@@ -31,7 +82,7 @@
 #include <Preferences.h> // For storing settings in Non-Volatile Storage (NVS)
 
 // --- CONSTANTS & DEFINITIONS ---
-#define FIRMWARE_VERSION "1.4.0-persistent"
+#define FIRMWARE_VERSION "1.5.0-refined"
 #define MAX_SENSORS 4
 #define HISTORY_DAYS 30
 #define HOURLY_READ_INTERVAL 3600000 // 1 hour in milliseconds (60 * 60 * 1000)
@@ -67,16 +118,16 @@ enum Command
 {
   CONNECT,
   GET_VERSION,
-  GET_PINS,
-  SET_PINS,
+  GET_PIN,
+  SET_PIN,
   GET_PLANT_NAME,
   SET_PLANT_NAME,
-  GET_CURRENT_VALUES,
+  GET_CURRENT_VALUE,
   GET_HISTORY,
   GET_DEVICE_ID,
   GET_DEVICE_NAME,
   SET_DEVICE_NAME,
-  READ_SENSORS // New internal command for on-demand reading
+  READ_SENSORS
 };
 
 // --- FUNCTION PROTOTYPES ---
@@ -88,6 +139,7 @@ void loadConfiguration();
 void initializeSensorPins();
 void readSensorValues();
 void updateAndStoreHistory();
+int getSensorIndexByName(String name);
 
 // =================================================================
 // SETUP
@@ -163,11 +215,11 @@ void loadConfiguration()
   // --- Sensor Setup ---
   // Sensor 0: Light (LDR)
   strcpy(sensors[0].name, "light");
-  sensors[0].pin = preferences.getInt("lightPin", 36);
+  sensors[0].pin = preferences.getInt("pin_light", 36);
 
   // Sensor 1: Water (Capacitive Soil Moisture Sensor)
   strcpy(sensors[1].name, "water");
-  sensors[1].pin = preferences.getInt("waterPin", 39);
+  sensors[1].pin = preferences.getInt("pin_water", 39);
 
   // Load sensor history from NVS
   Serial.println("Loading history from NVS...");
@@ -315,38 +367,50 @@ void executeCommand(String cmdStr, String payload)
     preferences.putString("deviceName", deviceName);
     sendResponse("OK", cmdStr, "Device name set to " + payload);
   }
-  else if (cmdStr == "GET_PINS")
+  else if (cmdStr == "GET_PIN")
   {
-    String pins = String(sensors[0].pin) + "," + String(sensors[1].pin);
-    sendResponse("OK", cmdStr, pins);
+    int sensorIndex = getSensorIndexByName(payload);
+    if (sensorIndex != -1)
+    {
+      sendResponse("OK", cmdStr, String(sensors[sensorIndex].pin));
+    }
+    else
+    {
+      sendResponse("ERROR", cmdStr, "Unknown sensor name");
+    }
   }
-  else if (cmdStr == "SET_PINS")
+  else if (cmdStr == "SET_PIN")
   {
     int commaIndex = payload.indexOf(',');
     if (commaIndex > 0)
     {
-      String lightPinStr = payload.substring(0, commaIndex);
-      String waterPinStr = payload.substring(commaIndex + 1);
-      int lightPin = lightPinStr.toInt();
-      int waterPin = waterPinStr.toInt();
-
-      if (lightPin > 0 && waterPin > 0)
+      String sensorName = payload.substring(0, commaIndex);
+      int sensorIndex = getSensorIndexByName(sensorName);
+      if (sensorIndex != -1)
       {
-        sensors[0].pin = lightPin;
-        sensors[1].pin = waterPin;
-        preferences.putInt("lightPin", lightPin);
-        preferences.putInt("waterPin", waterPin);
-        initializeSensorPins(); // Re-initialize pins with new numbers
-        sendResponse("OK", cmdStr, "Pins updated to light=" + String(lightPin) + ", water=" + String(waterPin));
+        int newPin = payload.substring(commaIndex + 1).toInt();
+        if (newPin > 0)
+        {
+          sensors[sensorIndex].pin = newPin;
+          char pinKey[16];
+          sprintf(pinKey, "pin_%s", sensors[sensorIndex].name);
+          preferences.putInt(pinKey, newPin);
+          initializeSensorPins(); // Re-initialize pins
+          sendResponse("OK", cmdStr, "Pin for " + sensorName + " updated to " + String(newPin));
+        }
+        else
+        {
+          sendResponse("ERROR", cmdStr, "Invalid pin number");
+        }
       }
       else
       {
-        sendResponse("ERROR", cmdStr, "Invalid pin numbers");
+        sendResponse("ERROR", cmdStr, "Unknown sensor name");
       }
     }
     else
     {
-      sendResponse("ERROR", cmdStr, "Invalid payload. Expected: lightPin,waterPin");
+      sendResponse("ERROR", cmdStr, "Invalid payload. Expected: <sensor_name>,<pin>");
     }
   }
   else if (cmdStr == "READ_SENSORS")
@@ -355,25 +419,23 @@ void executeCommand(String cmdStr, String payload)
     updateAndStoreHistory();
     sendResponse("OK", cmdStr, "Forced history update complete.");
   }
-  else if (cmdStr == "GET_CURRENT_VALUES")
+  else if (cmdStr == "GET_CURRENT_VALUE")
   {
-    // Run a fresh, lightweight read without storing to history/NVS
-    readSensorValues();
-    String values = "";
-    for (int i = 0; i < numSensors; i++)
+    int sensorIndex = getSensorIndexByName(payload);
+    if (sensorIndex != -1)
     {
-      values += String(sensors[i].lastValue) + (i == numSensors - 1 ? "" : ",");
+      // Run a fresh, lightweight read for the specific sensor
+      sensors[sensorIndex].lastValue = analogRead(sensors[sensorIndex].pin);
+      sendResponse("OK", cmdStr, String(sensors[sensorIndex].lastValue));
     }
-    sendResponse("OK", cmdStr, values);
+    else
+    {
+      sendResponse("ERROR", cmdStr, "Unknown sensor name");
+    }
   }
   else if (cmdStr == "GET_HISTORY")
   {
-    int sensorIndex = -1;
-    if (payload == "light")
-      sensorIndex = 0;
-    if (payload == "water")
-      sensorIndex = 1;
-
+    int sensorIndex = getSensorIndexByName(payload);
     if (sensorIndex != -1)
     {
       String historyPayload = "";
@@ -401,6 +463,23 @@ void executeCommand(String cmdStr, String payload)
 // =================================================================
 // UTILITY FUNCTIONS
 // =================================================================
+
+/**
+ * Returns the index of a sensor based on its name.
+ * @param name The name of the sensor (e.g., "light").
+ * @return The index in the sensors array or -1 if not found.
+ */
+int getSensorIndexByName(String name)
+{
+  for (int i = 0; i < numSensors; i++)
+  {
+    if (name.equalsIgnoreCase(sensors[i].name))
+    {
+      return i;
+    }
+  }
+  return -1;
+}
 
 /**
  * Returns the device's WiFi MAC address as a String.
