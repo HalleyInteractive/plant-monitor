@@ -1,12 +1,13 @@
 /**
- * Happy Plant - ESP32 Plant Monitoring System (Simplified)
+ * Happy Plant - ESP32 Plant Monitoring System (Enhanced v2)
  *
- * This firmware allows an ESP32 to monitor plant sensors (light, water, etc.),
- * store a 30-day history of sensor readings, and communicate with a web application
- * via the Serial port.
+ * This firmware allows an ESP32 to monitor plant sensors (light, water),
+ * store a 30-day history of sensor readings persistently in NVS, and
+ * communicate with a web application via the Serial port.
  *
- * This version is focused on a single device and does not include ESP-NOW or
- * multi-device proxy functionality.
+ * This version adds persistent history storage to NVS and optimizes NVS writes
+ * to only occur once per hour, reducing flash memory wear. The logic for
+ * reading sensor values is now separate from storing them in history.
  *
  * --- Communication Protocol (v3 - Simplified) ---
  * The device communicates over Serial using a simple text-based protocol.
@@ -30,9 +31,11 @@
 #include <Preferences.h> // For storing settings in Non-Volatile Storage (NVS)
 
 // --- CONSTANTS & DEFINITIONS ---
-#define FIRMWARE_VERSION "1.2.0-simplified"
+#define FIRMWARE_VERSION "1.4.0-persistent"
 #define MAX_SENSORS 4
 #define HISTORY_DAYS 30
+#define HOURLY_READ_INTERVAL 3600000 // 1 hour in milliseconds (60 * 60 * 1000)
+// For testing, you can use a shorter interval, e.g., 10 seconds: #define HOURLY_READ_INTERVAL 10000
 
 // NVS Namespace
 Preferences preferences;
@@ -44,15 +47,19 @@ struct Sensor
   char name[16];
   int pin;
   uint16_t lastValue;
+  // We store the most recent reading at index 0
   uint16_t history[HISTORY_DAYS];
 };
 
 Sensor sensors[MAX_SENSORS];
-int numSensors = 2; // Initially, we have two sensors
+int numSensors = 2; // We have a light and water sensor
 
 // --- DEVICE CONFIGURATION ---
 char plantName[32] = "My Plant";
 char deviceName[32] = "Plant Monitor";
+
+// --- TIMING ---
+unsigned long lastHourlyUpdate = 0;
 
 // --- PROTOCOL DEFINITIONS ---
 // This enum defines all possible commands in the protocol.
@@ -68,7 +75,8 @@ enum Command
   GET_HISTORY,
   GET_DEVICE_ID,
   GET_DEVICE_NAME,
-  SET_DEVICE_NAME
+  SET_DEVICE_NAME,
+  READ_SENSORS // New internal command for on-demand reading
 };
 
 // --- FUNCTION PROTOTYPES ---
@@ -77,6 +85,9 @@ void sendResponse(String code, String command, String payload);
 void handleSerialCommand(String commandString);
 void executeCommand(String cmdStr, String payload);
 void loadConfiguration();
+void initializeSensorPins();
+void readSensorValues();
+void updateAndStoreHistory();
 
 // =================================================================
 // SETUP
@@ -88,8 +99,11 @@ void setup()
   // Initialize NVS
   preferences.begin(nvsNamespace, false);
 
-  // Load configuration from NVS or set defaults
+  // Load configuration from NVS, including persistent history
   loadConfiguration();
+
+  // Initialize sensor pins
+  initializeSensorPins();
 
   // Set WiFi to station mode to get the MAC address.
   // The ESP32 doesn't need to connect to a network.
@@ -98,6 +112,11 @@ void setup()
 
   // Initial log to show the device is ready
   Serial.println("Plant Monitor Initialized. Ready for commands.");
+
+  // Perform an initial sensor read on startup, but don't store it,
+  // as the history is already loaded.
+  readSensorValues();
+  lastHourlyUpdate = millis();
 }
 
 // =================================================================
@@ -112,9 +131,12 @@ void loop()
     handleSerialCommand(commandString);
   }
 
-  // This part would contain the logic to read sensors every hour/day.
-  // For this example, we'll just use dummy data.
-  // To prevent blocking, you'd use millis() for timing in a real application.
+  // Check if it's time for the hourly history update
+  if (millis() - lastHourlyUpdate >= HOURLY_READ_INTERVAL)
+  {
+    updateAndStoreHistory();
+    lastHourlyUpdate = millis(); // Reset the timer
+  }
 
   // A small delay to keep the loop from running too fast
   delay(100);
@@ -126,7 +148,7 @@ void loop()
 
 /**
  * Loads device configuration from Non-Volatile Storage (NVS).
- * If values don't exist, it sets default values.
+ * This now includes loading the persistent sensor history.
  */
 void loadConfiguration()
 {
@@ -138,13 +160,87 @@ void loadConfiguration()
   String storedDeviceName = preferences.getString("deviceName", "Plant Monitor");
   storedDeviceName.toCharArray(deviceName, sizeof(deviceName));
 
-  // Setup default sensors
+  // --- Sensor Setup ---
+  // Sensor 0: Light (LDR)
   strcpy(sensors[0].name, "light");
-  sensors[0].pin = 34;
-  strcpy(sensors[1].name, "water");
-  sensors[1].pin = 35;
+  sensors[0].pin = preferences.getInt("lightPin", 36);
 
-  // In a real application, you would load sensor history from NVS as well
+  // Sensor 1: Water (Capacitive Soil Moisture Sensor)
+  strcpy(sensors[1].name, "water");
+  sensors[1].pin = preferences.getInt("waterPin", 39);
+
+  // Load sensor history from NVS
+  Serial.println("Loading history from NVS...");
+  for (int i = 0; i < numSensors; i++)
+  {
+    char historyKey[24];
+    sprintf(historyKey, "hist_%s", sensors[i].name);
+
+    // getBytes will fill the history array. If the key doesn't exist,
+    // it will not modify the array, so we initialize it to 0s first.
+    memset(sensors[i].history, 0, sizeof(sensors[i].history));
+    preferences.getBytes(historyKey, sensors[i].history, sizeof(sensors[i].history));
+  }
+}
+
+/**
+ * Sets the pin mode for all configured sensors.
+ */
+void initializeSensorPins()
+{
+  for (int i = 0; i < numSensors; i++)
+  {
+    pinMode(sensors[i].pin, INPUT);
+  }
+}
+
+// =================================================================
+// SENSOR READING & HISTORY MANAGEMENT
+// =================================================================
+
+/**
+ * Reads data from all configured sensors into the `lastValue` field.
+ * This function DOES NOT modify history or write to NVS.
+ */
+void readSensorValues()
+{
+  Serial.println("Reading current sensor values...");
+  for (int i = 0; i < numSensors; i++)
+  {
+    sensors[i].lastValue = analogRead(sensors[i].pin);
+  }
+}
+
+/**
+ * Updates the in-memory history with the latest sensor readings
+ * and persists the new history to NVS. This is the "heavy" operation
+ * that should only be called periodically.
+ */
+void updateAndStoreHistory()
+{
+  Serial.println("Updating history and storing to NVS...");
+  // First, get the fresh sensor readings
+  readSensorValues();
+
+  for (int i = 0; i < numSensors; i++)
+  {
+    // Shift history data one day back
+    for (int j = HISTORY_DAYS - 1; j > 0; j--)
+    {
+      sensors[i].history[j] = sensors[i].history[j - 1];
+    }
+
+    // Store the new value at the beginning of the history array
+    sensors[i].history[0] = sensors[i].lastValue;
+
+    // Create a key for this sensor's history (e.g., "hist_light")
+    char historyKey[24];
+    sprintf(historyKey, "hist_%s", sensors[i].name);
+
+    // Write the entire history array to NVS for this sensor
+    preferences.putBytes(historyKey, sensors[i].history, sizeof(sensors[i].history));
+  }
+  Serial.println("Sensor history updated and stored.");
 }
 
 // =================================================================
@@ -165,18 +261,18 @@ void handleSerialCommand(String commandString)
   String cmdStr, payload;
   int firstColon = commandString.indexOf(':');
 
-  if (firstColon > -1)
-  { // Check if a colon exists
+  if (firstColon != -1)
+  {
     cmdStr = commandString.substring(0, firstColon);
     payload = commandString.substring(firstColon + 1);
   }
   else
   {
-    sendResponse("ERROR", "UNKNOWN", "Invalid command format. Expected <COMMAND>:<PAYLOAD>");
-    return;
+    // Support for commands without payload, e.g. "GET_VERSION:"
+    cmdStr = commandString.substring(0, commandString.length() - 1);
+    payload = "";
   }
 
-  // All commands are executed locally
   executeCommand(cmdStr, payload);
 }
 
@@ -187,7 +283,11 @@ void handleSerialCommand(String commandString)
  */
 void executeCommand(String cmdStr, String payload)
 {
-  if (cmdStr == "GET_VERSION")
+  if (cmdStr == "CONNECT")
+  {
+    sendResponse("OK", cmdStr, "Ready");
+  }
+  else if (cmdStr == "GET_VERSION")
   {
     sendResponse("OK", cmdStr, FIRMWARE_VERSION);
   }
@@ -215,18 +315,83 @@ void executeCommand(String cmdStr, String payload)
     preferences.putString("deviceName", deviceName);
     sendResponse("OK", cmdStr, "Device name set to " + payload);
   }
+  else if (cmdStr == "GET_PINS")
+  {
+    String pins = String(sensors[0].pin) + "," + String(sensors[1].pin);
+    sendResponse("OK", cmdStr, pins);
+  }
+  else if (cmdStr == "SET_PINS")
+  {
+    int commaIndex = payload.indexOf(',');
+    if (commaIndex > 0)
+    {
+      String lightPinStr = payload.substring(0, commaIndex);
+      String waterPinStr = payload.substring(commaIndex + 1);
+      int lightPin = lightPinStr.toInt();
+      int waterPin = waterPinStr.toInt();
+
+      if (lightPin > 0 && waterPin > 0)
+      {
+        sensors[0].pin = lightPin;
+        sensors[1].pin = waterPin;
+        preferences.putInt("lightPin", lightPin);
+        preferences.putInt("waterPin", waterPin);
+        initializeSensorPins(); // Re-initialize pins with new numbers
+        sendResponse("OK", cmdStr, "Pins updated to light=" + String(lightPin) + ", water=" + String(waterPin));
+      }
+      else
+      {
+        sendResponse("ERROR", cmdStr, "Invalid pin numbers");
+      }
+    }
+    else
+    {
+      sendResponse("ERROR", cmdStr, "Invalid payload. Expected: lightPin,waterPin");
+    }
+  }
+  else if (cmdStr == "READ_SENSORS")
+  {
+    // Manually trigger the history update and NVS storage
+    updateAndStoreHistory();
+    sendResponse("OK", cmdStr, "Forced history update complete.");
+  }
   else if (cmdStr == "GET_CURRENT_VALUES")
   {
+    // Run a fresh, lightweight read without storing to history/NVS
+    readSensorValues();
     String values = "";
     for (int i = 0; i < numSensors; i++)
     {
-      // In a real scenario, you'd call analogRead(sensors[i].pin) here
-      sensors[i].lastValue = random(500, 3500); // Dummy data for demonstration
       values += String(sensors[i].lastValue) + (i == numSensors - 1 ? "" : ",");
     }
     sendResponse("OK", cmdStr, values);
   }
-  // Other commands (GET_PINS, SET_PINS, GET_HISTORY, etc.) would be implemented here
+  else if (cmdStr == "GET_HISTORY")
+  {
+    int sensorIndex = -1;
+    if (payload == "light")
+      sensorIndex = 0;
+    if (payload == "water")
+      sensorIndex = 1;
+
+    if (sensorIndex != -1)
+    {
+      String historyPayload = "";
+      for (int i = 0; i < HISTORY_DAYS; i++)
+      {
+        historyPayload += String(sensors[sensorIndex].history[i]);
+        if (i < HISTORY_DAYS - 1)
+        {
+          historyPayload += ",";
+        }
+      }
+      sendResponse("OK", cmdStr, historyPayload);
+    }
+    else
+    {
+      sendResponse("ERROR", cmdStr, "Unknown sensor name. Use 'light' or 'water'.");
+    }
+  }
   else
   {
     sendResponse("ERROR", cmdStr, "Unknown command");
