@@ -11,16 +11,6 @@ import { SerialController } from 'esp-controller';
 import * as Esp from '../models/esp.model';
 import * as Plant from '../models/plant.model';
 
-/**
- * Returns a promise with a timeout for set milliseconds.
- * @param ms milliseconds to wait
- * @returns Promise that resolves after set ms.
- */
-export function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-
 @Injectable({
   providedIn: 'root',
 })
@@ -49,7 +39,6 @@ export class EspService {
       await Esp.connectToDevice(this.controller);
       this.connected.set(true);
       this.startResponseListener();
-      await sleep(5000);
       await this.getDeviceInfo();
       console.log('Connection successful.');
     } catch (error) {
@@ -120,7 +109,7 @@ export class EspService {
   private handleResponse(rawResponse: string) {
     const response = Plant.parseResponse(rawResponse);
     if (!response) {
-      console.warn('Received invalid response:', rawResponse);
+      // console.warn('Received invalid response:', rawResponse);
       return;
     }
 
