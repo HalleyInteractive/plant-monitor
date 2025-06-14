@@ -1,0 +1,8 @@
+<button matButton="filled" (click)="espService.flashFirmware()">Flash</button>
+
+<p>Sync progress</p>
+<mat-progress-bar mode="determinate" [value]="syncProgress()"></mat-progress-bar>
+<p>Flash progress: {{flashPartition()?.filename}} &#64; {{flashPartition()?.offset}}</p>
+<mat-progress-bar mode="determinate" [value]="flashPartitionProgress()"></mat-progress-bar>
+<p>Flash Image progress: {{flashImagePartition()?.filename}} &#64; {{flashImagePartition()?.offset}}</p>
+<mat-progress-bar mode="determinate" [value]="flashImagePartitionProgress()"></mat-progress-bar>
