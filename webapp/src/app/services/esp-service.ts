@@ -158,11 +158,11 @@ export class EspService {
   private addLogEntry(entry: string) {
     this.serialLog.update(currentLogs => {
       // Create a new array with the new entry appended
-      const newLogs = [...currentLogs, entry];
+      const newLogs = [entry,...currentLogs];
 
       // If the new array exceeds the max length, slice it from the end
       if (newLogs.length > MAX_LOG_ENTRIES) {
-        return newLogs.slice(newLogs.length - MAX_LOG_ENTRIES);
+        return newLogs.slice(0, MAX_LOG_ENTRIES);
       }
       return newLogs;
     });

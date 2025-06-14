@@ -14,7 +14,6 @@ import { Logs } from "../../components/logs/logs";
   selector: 'app-home',
   imports: [MatButtonModule, MatCardModule, MatFormFieldModule, MatToolbarModule, MatIconModule, MatDividerModule, MatListModule, Logs],
   standalone: true,
-  providers: [EspService],
   templateUrl: './home.html',
   styleUrl: './home.scss'
 })
