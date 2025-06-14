@@ -1,13 +1,12 @@
-Logs
+<div class="logs-container">
+  <h2>Serial Logs</h2>
 
- {{espService.serialLog()}}
+  <p><b>Current Signal Value:</b></p>
+  <pre>{{ espService.serialLog() | json }}</pre>
 
-@for (logEntry of espService.serialLog(); track $index) {
-  <p>{{logEntry}}</p>
-}
-<mat-list role="list">
- @for (logEntry of espService.serialLog(); track $index) {
-  <p>asdf</p>
-  <mat-list-item role="listitem">{{logEntry}}</mat-list-item>
- }
-</mat-list>
+  <mat-list role="list">
+    @for (logEntry of espService.serialLog(); track $index) {
+      <mat-list-item role="listitem">{{ logEntry }}</mat-list-item>
+    }
+  </mat-list>
+</div>
