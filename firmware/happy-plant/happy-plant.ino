@@ -243,7 +243,9 @@ void executeCommand(String cmdStr, String payload)
  */
 String getDeviceIdString()
 {
-  return WiFi.macAddress();
+  String macAddress = WiFi.macAddress();
+  macAddress.replace(":", ""); // Remove all colons
+  return macAddress;
 }
 
 /**
