@@ -28,6 +28,8 @@ export class EspService {
   readonly currentSensorValues = signal<number[]>([]);
   readonly sensorHistory = signal<Plant.SensorHistory[]>([]);
   readonly serialLog = signal<string[]>([]);
+  readonly flashing = signal<boolean>(false);
+
 
   constructor() {
     Esp.onFlashProgress(this.controller, (progress, partition) => {
@@ -82,11 +84,14 @@ export class EspService {
 
   public async flashFirmware() {
     try {
+      this.flashing.set(true);
+      console.log('Starting firmware flashing in service.');
       await Esp.flashFirmware(this.controller);
       console.log('Firmware flashing completed successfully in service.');
     } catch (error) {
       console.error('Firmware flashing failed in service:', error);
     }
+    this.flashing.set(false);
   }
 
   // --- Private Helpers ---

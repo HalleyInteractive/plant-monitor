@@ -3,10 +3,12 @@ import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {MatButtonModule} from '@angular/material/button';
 import { EspService } from '../../services/esp-service';
 import { Partition } from 'esp-controller';
+import { MatCardModule } from '@angular/material/card';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 @Component({
   selector: 'app-flash',
-  imports: [MatProgressBarModule, MatButtonModule],
+  imports: [MatProgressBarModule, MatButtonModule, MatCardModule, MatProgressSpinnerModule],
   templateUrl: './flash.html',
   styleUrl: './flash.scss'
 })
@@ -38,6 +40,14 @@ export class Flash {
       this.flashPartition.set(partition);
       this.flashPartitionProgress.set(event.detail.progress);
     });
+  }
+
+  async flashDevice() {
+    await this.espService.flashFirmware();
+  }
+
+  isFlashingInProgress() {
+    return this.espService.flashing();
   }
   
 }

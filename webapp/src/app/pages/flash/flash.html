@@ -1,8 +1,64 @@
-<button matButton="filled" (click)="espService.flashFirmware()">Flash</button>
+<div class="container">
+  <mat-card class="flash-controls-card">
+    <mat-card-header>
+      <mat-card-title>Flash ESP32 Firmware</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <p>
+        Follow these steps to flash new firmware onto your ESP32 device:
+      </p>
+      <ul>
+        <li>Ensure your ESP32 device is connected to your computer via USB.</li>
+        <li>If you haven't connected to the device in this session, please go to the main page and click "Connect".</li>
+        <li>When you click the "Flash Device" button below, the process will start with device synchronization.</li>
+        <li><strong>Important:</strong> During the "Syncing with Device" phase, you may need to <strong>press and hold the "BOOT" (or "FLASH") button</strong> on your ESP32 device.</li>
+        <li>Release the "BOOT" button once synchronization is complete (reaches 100%) and the firmware flashing begins.</li>
+        <li>The device will automatically reset after the flashing process is successfully completed.</li>
+      </ul>
+    </mat-card-content>
+    <mat-card-actions>
+      <button mat-raised-button color="primary" (click)="flashDevice()" [disabled]="isFlashingInProgress()">
+        {{ isFlashingInProgress() ? 'Flashing in Progress...' : 'Flash Device' }}
+      </button>
+    </mat-card-actions>
+  </mat-card>
 
-<p>Sync progress</p>
-<mat-progress-bar mode="determinate" [value]="syncProgress()"></mat-progress-bar>
-<p>Flash progress: {{flashPartition()?.filename}} &#64; {{flashPartition()?.offset}}</p>
-<mat-progress-bar mode="determinate" [value]="flashPartitionProgress()"></mat-progress-bar>
-<p>Flash Image progress: {{flashImagePartition()?.filename}} &#64; {{flashImagePartition()?.offset}}</p>
-<mat-progress-bar mode="determinate" [value]="flashImagePartitionProgress()"></mat-progress-bar>
+  @if (isFlashingInProgress()) {
+    <mat-card class="progress-status-card">
+      <mat-card-content>
+        <div class="progress-section">
+          <h3>Syncing with Device</h3>
+          <mat-progress-spinner mode="determinate" [value]="syncProgress()" diameter="60"></mat-progress-spinner>
+          <p class="progress-percentage">{{ syncProgress().toFixed(0) }}%</p>
+          @if (syncProgress() < 100 && syncProgress() > 0) {
+            <p class="instruction-text">Waiting for sync... If it seems stuck, try holding the BOOT button on your ESP32.</p>
+          }
+        </div>
+
+        <div class="progress-section">
+          <h3>Flashing Firmware Image</h3>
+          @if (flashImagePartition(); as partition) {
+            <p>File: {{ partition.filename }}</p>
+          } @else if (syncProgress() === 100) {
+            <p>Preparing to flash image...</p>
+          }
+          <mat-progress-bar mode="determinate" [value]="flashImagePartitionProgress()"></mat-progress-bar>
+          <p class="progress-percentage">{{ flashImagePartitionProgress().toFixed(0) }}% Complete</p>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  }
+
+  <mat-card class="logs-card">
+    <mat-card-header>
+      <mat-card-title>Device Logs</mat-card-title>
+    </mat-card-header>
+    <mat-card-content class="logs-content-area">
+      @for (log of espService.serialLog(); track $index) {
+        <div class="log-entry">{{ log }}</div>
+      } @empty {
+        <p>No log entries yet. Logs will appear here during device interaction.</p>
+      }
+    </mat-card-content>
+  </mat-card>
+</div>
