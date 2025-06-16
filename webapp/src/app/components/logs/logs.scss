@@ -1,6 +1,9 @@
-.logs-container {
-  display: flex;
-  flex-direction: column;
+.log-card {
+  margin: 20px;
+}
+
+.log-content {
   max-height: 400px;
-  overflow-y: scroll;
+  overflow-y: auto;
+  font-family: "Courier New", Courier, monospace;
 }

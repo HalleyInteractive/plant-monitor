@@ -1,6 +1,10 @@
-<h2>Serial Logs</h2>
-<div class="logs-container">
-  @for (logEntry of espService.serialLog(); track $index) {
-    <div class="log-entry">{{ logEntry }}</div>
-  }
-</div>
+<mat-card class="log-card">
+  <mat-card-header>
+    <mat-card-title>Serial Log</mat-card-title>
+  </mat-card-header>
+  <mat-card-content class="log-content">
+    @for (entry of espService.serialLog(); track entry; let i = $index) {
+      <div class="log-entry">{{ entry }}</div>
+    }
+  </mat-card-content>
+</mat-card>
