@@ -7,16 +7,19 @@
 
 // Mirrors the command enum in the ESP32 firmware
 export enum PlantCommand {
+  CONNECT = 'CONNECT',
   GET_VERSION = 'GET_VERSION',
-  GET_PINS = 'GET_PINS',
-  SET_PINS = 'SET_PINS',
   GET_PLANT_NAME = 'GET_PLANT_NAME',
   SET_PLANT_NAME = 'SET_PLANT_NAME',
-  GET_CURRENT_VALUES = 'GET_CURRENT_VALUES',
-  GET_HISTORY = 'GET_HISTORY',
-  GET_DEVICE_ID = 'GET_DEVICE_ID',
-  GET_DEVICE_NAME = 'GET_DEVICE_NAME',
-  SET_DEVICE_NAME = 'SET_DEVICE_NAME',
+  READ_SENSORS = 'READ_SENSORS',
+  GET_PIN_LIGHT = 'GET_PIN_LIGHT',
+  SET_PIN_LIGHT = 'SET_PIN_LIGHT',
+  GET_CURRENT_VALUE_LIGHT = 'GET_CURRENT_VALUE_LIGHT',
+  GET_HISTORY_LIGHT = 'GET_HISTORY_LIGHT',
+  GET_PIN_WATER = 'GET_PIN_WATER',
+  SET_PIN_WATER = 'SET_PIN_WATER',
+  GET_CURRENT_VALUE_WATER = 'GET_CURRENT_VALUE_WATER',
+  GET_HISTORY_WATER = 'GET_HISTORY_WATER',
 }
 
 // Mirrors the response codes in the ESP32 firmware
@@ -25,30 +28,29 @@ export enum ResponseCode {
   ERROR = 'ERROR',
 }
 
-// Interface for a parsed response from the device
-export interface DeviceResponse {
-  raw: string;
-  code: ResponseCode;
-  sourceId: string;
-  command: PlantCommand;
-  payload: string;
-}
-
 // Interface for a sensor's history data
 export interface SensorHistory {
   name: string;
   values: number[];
 }
 
+// Interface for a parsed response from the device
+export interface DeviceResponse {
+  raw: string;
+  code: ResponseCode;
+  command: PlantCommand;
+  payload: string;
+}
+
 /**
  * Creates a command string to be sent to the device.
- * Format: <COMMAND>:<PAYLOAD>\n
+ * Format: <COMMAND>\n or <COMMAND>:<PAYLOAD>\n
  * @param cmd The command to send.
  * @param payload Optional data for the command.
  * @returns A formatted command string.
  */
 export function createCommandString(cmd: PlantCommand, payload = ''): string {
-  return `${cmd}:${payload}\n`;
+  return payload ? `${cmd}:${payload}\n` : `${cmd}\n`;
 }
 
 /**
@@ -57,20 +59,20 @@ export function createCommandString(cmd: PlantCommand, payload = ''): string {
  * @returns A structured DeviceResponse object, or null if parsing fails.
  */
 export function parseResponse(rawResponse: string): DeviceResponse | null {
-  // Expected format: <CODE>:<SOURCE_ID>:<COMMAND>:<PAYLOAD>
-  const parts = rawResponse.split(':');
-  if (parts.length < 4) {
+  // Expected format: <RESPONSE_CODE>:<ORIGINAL_COMMAND>:<PAYLOAD>
+  const parts = rawResponse.trim().split(':', 3); // Limit split to 3 parts
+  if (parts.length < 2) { // Must have at least CODE and COMMAND
     return null; // Ignore malformed messages
   }
 
-  const [code, sourceId, command, ...payloadParts] = parts;
-  const payload = payloadParts.join(':');
+  const code = parts[0] as ResponseCode;
+  const command = parts[1] as PlantCommand;
+  const payload = parts[2] || ''; // Payload can be empty
 
   return {
     raw: rawResponse,
-    code: code as ResponseCode,
-    sourceId,
-    command: command as PlantCommand,
+    code,
+    command,
     payload,
   };
 }

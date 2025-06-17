@@ -21,14 +21,18 @@ export class EspService {
 
   // --- State Signals for a Plant Device ---
   readonly connected = signal(false);
-  readonly deviceId = signal<string | null>(null);
-  readonly deviceName = signal<string | null>(null);
   readonly plantName = signal<string | null>(null);
   readonly version = signal<string | null>(null);
-  readonly currentSensorValues = signal<number[]>([]);
-  readonly sensorHistory = signal<Plant.SensorHistory[]>([]);
   readonly serialLog = signal<string[]>([]);
   readonly flashing = signal<boolean>(false);
+
+  // New state signals based on refined commands
+  readonly pinLight = signal<string | null>(null);
+  readonly currentLightValue = signal<number | null>(null);
+  readonly lightHistory = signal<number[]>([]);
+  readonly pinWater = signal<string | null>(null);
+  readonly currentWaterValue = signal<number | null>(null);
+  readonly waterHistory = signal<number[]>([]);
 
 
   constructor() {
@@ -42,8 +46,9 @@ export class EspService {
   async connect() {
     try {
       await Esp.connectToDevice(this.controller);
-      this.connected.set(true);
       this.startResponseListener();
+      this.connected.set(true);
+      await this.sendCommand(Plant.PlantCommand.CONNECT);
       await this.getDeviceInfo();
       console.log('Connection successful.');
     } catch (error) {
@@ -55,21 +60,26 @@ export class EspService {
   async disconnect() {
     await Esp.disconnectFromDevice(this.controller);
     this.connected.set(false);
-    this.deviceId.set(null);
-    this.deviceName.set(null);
     this.plantName.set(null);
     this.version.set(null);
-    this.currentSensorValues.set([]);
-    this.sensorHistory.set([]);
+    this.pinLight.set(null);
+    this.currentLightValue.set(null);
+    this.lightHistory.set([]);
+    this.pinWater.set(null);
+    this.currentWaterValue.set(null);
+    this.waterHistory.set([]);
   }
 
   // --- Command Methods ---
   public async getDeviceInfo() {
-    await this.sendCommand(Plant.PlantCommand.GET_DEVICE_ID);
-    await this.sendCommand(Plant.PlantCommand.GET_DEVICE_NAME);
-    await this.sendCommand(Plant.PlantCommand.GET_PLANT_NAME);
     await this.sendCommand(Plant.PlantCommand.GET_VERSION);
-    await this.sendCommand(Plant.PlantCommand.GET_CURRENT_VALUES);
+    await this.sendCommand(Plant.PlantCommand.GET_PLANT_NAME);
+    await this.sendCommand(Plant.PlantCommand.GET_PIN_LIGHT);
+    await this.sendCommand(Plant.PlantCommand.GET_PIN_WATER);
+    await this.sendCommand(Plant.PlantCommand.GET_CURRENT_VALUE_LIGHT);
+    await this.sendCommand(Plant.PlantCommand.GET_CURRENT_VALUE_WATER);
+    await this.sendCommand(Plant.PlantCommand.GET_HISTORY_LIGHT);
+    await this.sendCommand(Plant.PlantCommand.GET_HISTORY_WATER);
   }
 
   public setPlantName(name: string) {
@@ -77,10 +87,20 @@ export class EspService {
     this.sendCommand(Plant.PlantCommand.SET_PLANT_NAME, name);
   }
 
-  public setDeviceName(name: string) {
-    if (!name) return;
-    this.sendCommand(Plant.PlantCommand.SET_DEVICE_NAME, name);
+  public readSensors() {
+    this.sendCommand(Plant.PlantCommand.READ_SENSORS);
   }
+
+  public getPinLight = () => this.sendCommand(Plant.PlantCommand.GET_PIN_LIGHT);
+  public setPinLight = (pin: string) => this.sendCommand(Plant.PlantCommand.SET_PIN_LIGHT, pin);
+  public getCurrentValueLight = () => this.sendCommand(Plant.PlantCommand.GET_CURRENT_VALUE_LIGHT);
+  public getHistoryLight = () => this.sendCommand(Plant.PlantCommand.GET_HISTORY_LIGHT);
+
+  public getPinWater = () => this.sendCommand(Plant.PlantCommand.GET_PIN_WATER);
+  public setPinWater = (pin: string) => this.sendCommand(Plant.PlantCommand.SET_PIN_WATER, pin);
+  public getCurrentValueWater = () => this.sendCommand(Plant.PlantCommand.GET_CURRENT_VALUE_WATER);
+  public getHistoryWater = () => this.sendCommand(Plant.PlantCommand.GET_HISTORY_WATER);
+
 
   public async flashFirmware() {
     try {
@@ -124,31 +144,42 @@ export class EspService {
 
     console.log(`Received Response:`, response);
 
-    if (this.deviceId() === null) {
-      this.deviceId.set(response.sourceId);
-    }
-
     if (response.code === Plant.ResponseCode.OK) {
       switch (response.command) {
+        case Plant.PlantCommand.CONNECT:
+          console.log('Device handshake successful:', response.payload); // Expected: "Ready"
+          break;
         case Plant.PlantCommand.GET_VERSION:
           this.version.set(response.payload);
-          break;
-        case Plant.PlantCommand.GET_DEVICE_NAME:
-        case Plant.PlantCommand.SET_DEVICE_NAME:
-          this.deviceName.set(response.payload);
           break;
         case Plant.PlantCommand.GET_PLANT_NAME:
         case Plant.PlantCommand.SET_PLANT_NAME:
           this.plantName.set(response.payload);
           break;
-        case Plant.PlantCommand.GET_CURRENT_VALUES:
-          this.currentSensorValues.set(
-            Plant.parseNumericPayload(response.payload),
-          );
+        case Plant.PlantCommand.READ_SENSORS:
+          console.log('Sensors read and history updated on device:', response.payload);
+          // Optionally, re-fetch current values or history if needed
           break;
-        case Plant.PlantCommand.GET_DEVICE_ID:
-            this.deviceId.set(response.payload);
-            break;
+        case Plant.PlantCommand.GET_PIN_LIGHT:
+        case Plant.PlantCommand.SET_PIN_LIGHT:
+          this.pinLight.set(response.payload);
+          break;
+        case Plant.PlantCommand.GET_CURRENT_VALUE_LIGHT:
+          this.currentLightValue.set(Plant.parseNumericPayload(response.payload)[0] ?? null);
+          break;
+        case Plant.PlantCommand.GET_HISTORY_LIGHT:
+          this.lightHistory.set(Plant.parseNumericPayload(response.payload));
+          break;
+        case Plant.PlantCommand.GET_PIN_WATER:
+        case Plant.PlantCommand.SET_PIN_WATER:
+          this.pinWater.set(response.payload);
+          break;
+        case Plant.PlantCommand.GET_CURRENT_VALUE_WATER:
+          this.currentWaterValue.set(Plant.parseNumericPayload(response.payload)[0] ?? null);
+          break;
+        case Plant.PlantCommand.GET_HISTORY_WATER:
+          this.waterHistory.set(Plant.parseNumericPayload(response.payload));
+          break;
       }
     } else {
       console.error(`Device Error (Command: ${response.command}): ${response.payload}`);
