@@ -3,75 +3,88 @@
 
   <div class="section">
     <h3>Connection</h3>
-    <button (click)="espService.connect()" [disabled]="espService.connected()">Connect</button>
-    <button (click)="espService.disconnect()" [disabled]="!espService.connected()">Disconnect</button>
+    <button mat-raised-button color="primary" (click)="espService.connect()" [disabled]="espService.connected()">Connect</button>
+    <button mat-raised-button color="warn" (click)="espService.disconnect()" [disabled]="!espService.connected()">Disconnect</button>
     <p>Status: {{ espService.connected() ? 'Connected' : 'Disconnected' }}</p>
     <p *ngIf="espService.flashing()">FLASHING FIRMWARE...</p>
   </div>
 
   <div class="section" *ngIf="espService.connected()">
     <h3>Device Info</h3>
-    <button (click)="espService.getDeviceInfo()">Refresh Device Info</button>
+    <button mat-button (click)="espService.getDeviceInfo()">Refresh Device Info</button>
     <p>Plant Name: {{ espService.plantName() ?? 'N/A' }}</p>
     <p>Version: {{ espService.version() ?? 'N/A' }}</p>
 
     <div>
-      <label for="plantNameInput">Set Plant Name:</label>
-      <input type="text" id="plantNameInput" #plantNameInput />
-      <button (click)="espService.setPlantName(plantNameInput.value)">Set Name</button>
+      <mat-form-field appearance="outline" class="input-field">
+        <mat-label>Set Plant Name</mat-label>
+        <input matInput type="text" id="plantNameInput" #plantNameInput />
+        <button mat-icon-button matSuffix (click)="espService.setPlantName(plantNameInput.value)" matTooltip="Set Name">
+          <mat-icon>send</mat-icon>
+        </button>
+      </mat-form-field>
     </div>
   </div>
 
   <div class="section" *ngIf="espService.connected()">
     <h3>Sensors</h3>
-    <button (click)="espService.readSensors()">Read Sensors (Update History on Device)</button>
+    <button mat-raised-button (click)="espService.readSensors()">Read Sensors (Update History on Device)</button>
 
     <h4>Light Sensor</h4>
     <p>Pin: {{ espService.pinLight() ?? 'N/A' }}</p>
     <div>
-      <label for="pinLightInput">Set Light Pin:</label>
-      <input type="text" id="pinLightInput" #pinLightInput />
-      <button (click)="espService.setPinLight(pinLightInput.value)">Set Light Pin</button>
-      <button (click)="espService.getPinLight()">Get Light Pin</button>
+      <mat-form-field appearance="outline" class="input-field">
+        <mat-label>Set Light Pin</mat-label>
+        <input matInput type="text" id="pinLightInput" #pinLightInput />
+        <button mat-icon-button matSuffix (click)="espService.setPinLight(pinLightInput.value)" matTooltip="Set Light Pin">
+          <mat-icon>send</mat-icon>
+        </button>
+      </mat-form-field>
+      <button mat-button (click)="espService.getPinLight()">Get Light Pin</button>
     </div>
     <p>Current Value: {{ espService.currentLightValue() ?? 'N/A' }}</p>
-    <button (click)="espService.getCurrentValueLight()">Get Current Light Value</button>
+    <button mat-button (click)="espService.getCurrentValueLight()">Get Current Light Value</button>
     <p>History: {{ espService.lightHistory().join(', ') }}</p>
-    <button (click)="espService.getHistoryLight()">Get Light History</button>
+    <button mat-button (click)="espService.getHistoryLight()">Get Light History</button>
 
     <h4>Water Sensor</h4>
     <p>Pin: {{ espService.pinWater() ?? 'N/A' }}</p>
     <div>
-      <label for="pinWaterInput">Set Water Pin:</label>
-      <input type="text" id="pinWaterInput" #pinWaterInput />
-      <button (click)="espService.setPinWater(pinWaterInput.value)">Set Water Pin</button>
-      <button (click)="espService.getPinWater()">Get Water Pin</button>
+      <mat-form-field appearance="outline" class="input-field">
+        <mat-label>Set Water Pin</mat-label>
+        <input matInput type="text" id="pinWaterInput" #pinWaterInput />
+        <button mat-icon-button matSuffix (click)="espService.setPinWater(pinWaterInput.value)" matTooltip="Set Water Pin">
+          <mat-icon>send</mat-icon>
+        </button>
+      </mat-form-field>
+      <button mat-button (click)="espService.getPinWater()">Get Water Pin</button>
     </div>
     <p>Current Value: {{ espService.currentWaterValue() ?? 'N/A' }}</p>
-    <button (click)="espService.getCurrentValueWater()">Get Current Water Value</button>
+    <button mat-button (click)="espService.getCurrentValueWater()">Get Current Water Value</button>
     <p>History: {{ espService.waterHistory().join(', ') }}</p>
-    <button (click)="espService.getHistoryWater()">Get Water History</button>
+    <button mat-button (click)="espService.getHistoryWater()">Get Water History</button>
   </div>
 
   <div class="section" *ngIf="espService.connected()">
     <h3>Firmware</h3>
-    <button (click)="espService.flashFirmware()" [disabled]="espService.flashing()">Flash Firmware</button>
+    <button mat-raised-button color="accent" (click)="espService.flashFirmware()" [disabled]="espService.flashing()">Flash Firmware</button>
   </div>
 
   <div class="section logs">
     <h3>Serial Log (Raw)</h3>
     <div class="log-entries">
-      <div *ngFor="let entry of espService.serialLog()">{{ entry }}</div>
+      <div *ngFor="let entry of espService.serialLog()">
+        <pre>{{ entry }}</pre>
+      </div>
     </div>
   </div>
 
   <div class="section logs">
     <h3>Parsed Responses Log</h3>
     <div class="log-entries">
-      <div *ngFor="let entry of espService.parsedResponsesLog()">
+      <div *ngFor="let entry of espService.parsedResponsesLog()" class="log-entry">
         <pre>{{ entry | json }}</pre>
       </div>
     </div>
   </div>
-
 </div>
