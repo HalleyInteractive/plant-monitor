@@ -65,26 +65,4 @@
     <button mat-button (click)="espService.getHistoryWater()">Get Water History</button>
   </div>
 
-  <div class="section" *ngIf="espService.connected()">
-    <h3>Firmware</h3>
-    <button mat-raised-button color="accent" (click)="espService.flashFirmware()" [disabled]="espService.flashing()">Flash Firmware</button>
-  </div>
-
-  <div class="section logs">
-    <h3>Serial Log (Raw)</h3>
-    <div class="log-entries">
-      <div *ngFor="let entry of espService.serialLog()">
-        <pre>{{ entry }}</pre>
-      </div>
-    </div>
-  </div>
-
-  <div class="section logs">
-    <h3>Parsed Responses Log</h3>
-    <div class="log-entries">
-      <div *ngFor="let entry of espService.parsedResponsesLog()" class="log-entry">
-        <pre>{{ entry | json }}</pre>
-      </div>
-    </div>
-  </div>
 </div>

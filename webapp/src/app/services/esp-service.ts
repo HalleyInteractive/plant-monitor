@@ -35,13 +35,12 @@ export class EspService {
   readonly currentWaterValue = signal<number | null>(null);
   readonly waterHistory = signal<number[]>([]);
 
-
   constructor() {
     Esp.onFlashProgress(this.controller, (progress, partition) => {
       console.log(
         `[${partition.filename}] Flash progress: ${progress.toFixed(2)}%`,
       );
-    });
+    })
   }
 
   async connect() {
@@ -167,15 +166,18 @@ export class EspService {
           break;
         case Plant.PlantCommand.READ_SENSORS:
           console.log('Sensors read and history updated on device:', response.payload);
-          // Optionally, re-fetch current values or history if needed
           break;
         case Plant.PlantCommand.GET_PIN_LIGHT:
         case Plant.PlantCommand.SET_PIN_LIGHT:
           this.pinLight.set(response.payload);
           break;
         case Plant.PlantCommand.GET_CURRENT_VALUE_LIGHT:
-          this.currentLightValue.set(Plant.parseNumericPayload(response.payload)[0] ?? null);
-          break;
+          { const newLightValue = Plant.parseNumericPayload(response.payload)[0] ?? null;
+          this.currentLightValue.set(newLightValue);
+          if (newLightValue !== null) {
+            this.lightHistory.update(history => [...history, newLightValue]);
+          }
+          break; }
         case Plant.PlantCommand.GET_HISTORY_LIGHT:
           this.lightHistory.set(Plant.parseNumericPayload(response.payload));
           break;
@@ -184,8 +186,12 @@ export class EspService {
           this.pinWater.set(response.payload);
           break;
         case Plant.PlantCommand.GET_CURRENT_VALUE_WATER:
-          this.currentWaterValue.set(Plant.parseNumericPayload(response.payload)[0] ?? null);
-          break;
+          { const newWaterValue = Plant.parseNumericPayload(response.payload)[0] ?? null;
+          this.currentWaterValue.set(newWaterValue);
+          if (newWaterValue !== null) {
+            this.waterHistory.update(history => [...history, newWaterValue]);
+          }
+          break; }
         case Plant.PlantCommand.GET_HISTORY_WATER:
           this.waterHistory.set(Plant.parseNumericPayload(response.payload));
           break;
