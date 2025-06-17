@@ -1,3 +1,77 @@
 <div class="container">
-  <p>debug works!</p>
+  <h2>ESP32 Plant Monitor Debug Page</h2>
+
+  <div class="section">
+    <h3>Connection</h3>
+    <button (click)="espService.connect()" [disabled]="espService.connected()">Connect</button>
+    <button (click)="espService.disconnect()" [disabled]="!espService.connected()">Disconnect</button>
+    <p>Status: {{ espService.connected() ? 'Connected' : 'Disconnected' }}</p>
+    <p *ngIf="espService.flashing()">FLASHING FIRMWARE...</p>
+  </div>
+
+  <div class="section" *ngIf="espService.connected()">
+    <h3>Device Info</h3>
+    <button (click)="espService.getDeviceInfo()">Refresh Device Info</button>
+    <p>Plant Name: {{ espService.plantName() ?? 'N/A' }}</p>
+    <p>Version: {{ espService.version() ?? 'N/A' }}</p>
+
+    <div>
+      <label for="plantNameInput">Set Plant Name:</label>
+      <input type="text" id="plantNameInput" #plantNameInput />
+      <button (click)="espService.setPlantName(plantNameInput.value)">Set Name</button>
+    </div>
+  </div>
+
+  <div class="section" *ngIf="espService.connected()">
+    <h3>Sensors</h3>
+    <button (click)="espService.readSensors()">Read Sensors (Update History on Device)</button>
+
+    <h4>Light Sensor</h4>
+    <p>Pin: {{ espService.pinLight() ?? 'N/A' }}</p>
+    <div>
+      <label for="pinLightInput">Set Light Pin:</label>
+      <input type="text" id="pinLightInput" #pinLightInput />
+      <button (click)="espService.setPinLight(pinLightInput.value)">Set Light Pin</button>
+      <button (click)="espService.getPinLight()">Get Light Pin</button>
+    </div>
+    <p>Current Value: {{ espService.currentLightValue() ?? 'N/A' }}</p>
+    <button (click)="espService.getCurrentValueLight()">Get Current Light Value</button>
+    <p>History: {{ espService.lightHistory().join(', ') }}</p>
+    <button (click)="espService.getHistoryLight()">Get Light History</button>
+
+    <h4>Water Sensor</h4>
+    <p>Pin: {{ espService.pinWater() ?? 'N/A' }}</p>
+    <div>
+      <label for="pinWaterInput">Set Water Pin:</label>
+      <input type="text" id="pinWaterInput" #pinWaterInput />
+      <button (click)="espService.setPinWater(pinWaterInput.value)">Set Water Pin</button>
+      <button (click)="espService.getPinWater()">Get Water Pin</button>
+    </div>
+    <p>Current Value: {{ espService.currentWaterValue() ?? 'N/A' }}</p>
+    <button (click)="espService.getCurrentValueWater()">Get Current Water Value</button>
+    <p>History: {{ espService.waterHistory().join(', ') }}</p>
+    <button (click)="espService.getHistoryWater()">Get Water History</button>
+  </div>
+
+  <div class="section" *ngIf="espService.connected()">
+    <h3>Firmware</h3>
+    <button (click)="espService.flashFirmware()" [disabled]="espService.flashing()">Flash Firmware</button>
+  </div>
+
+  <div class="section logs">
+    <h3>Serial Log (Raw)</h3>
+    <div class="log-entries">
+      <div *ngFor="let entry of espService.serialLog()">{{ entry }}</div>
+    </div>
+  </div>
+
+  <div class="section logs">
+    <h3>Parsed Responses Log</h3>
+    <div class="log-entries">
+      <div *ngFor="let entry of espService.parsedResponsesLog()">
+        <pre>{{ entry | json }}</pre>
+      </div>
+    </div>
+  </div>
+
 </div>

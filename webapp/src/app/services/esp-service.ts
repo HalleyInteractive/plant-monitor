@@ -24,6 +24,7 @@ export class EspService {
   readonly plantName = signal<string | null>(null);
   readonly version = signal<string | null>(null);
   readonly serialLog = signal<string[]>([]);
+  readonly parsedResponsesLog = signal<Plant.DeviceResponse[]>([]); // New signal for parsed responses
   readonly flashing = signal<boolean>(false);
 
   // New state signals based on refined commands
@@ -68,6 +69,7 @@ export class EspService {
     this.pinWater.set(null);
     this.currentWaterValue.set(null);
     this.waterHistory.set([]);
+    this.parsedResponsesLog.set([]);
   }
 
   // --- Command Methods ---
@@ -142,6 +144,13 @@ export class EspService {
       return;
     }
 
+    // Add to parsed responses log
+    this.parsedResponsesLog.update(currentResponses => {
+      const newResponses = [response, ...currentResponses];
+      return newResponses.length > MAX_LOG_ENTRIES ? newResponses.slice(0, MAX_LOG_ENTRIES) : newResponses;
+    });
+
+
     console.log(`Received Response:`, response);
 
     if (response.code === Plant.ResponseCode.OK) {
@@ -202,6 +211,8 @@ export class EspService {
       }
       return newLogs;
     });
-    console.log('SIGNAL:', this.serialLog());
+    // Consider removing or making this log conditional for less console noise.
+    // For example, only log if a specific debug flag is true.
+    // console.log('RAW SERIAL LOG UPDATED:', this.serialLog());
   }
 }
