@@ -9,19 +9,11 @@ on:
       - "firmware/happy-plant/**"
 
 jobs:
-  build:
+  install-board-support:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        board:
-          - name: esp32
-            fqbn: esp32:esp32:esp32
-          - name: esp32-s3
-            fqbn: esp32:esp32:esp32s3
-
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up arduino-cli
         uses: arduino/setup-arduino-cli@v1
@@ -31,6 +23,35 @@ jobs:
           arduino-cli core update-index --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
           arduino-cli core install esp32:esp32 --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
 
+      - name: Upload board support artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp32-board-support
+          path: /home/runner/.arduino15/packages/esp32
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [install-board-support]
+    strategy:
+      matrix:
+        board:
+          - name: esp32
+            fqbn: esp32:esp32:esp32
+          - name: esp32-s3
+            fqbn: esp32:esp32:esp32s3
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up arduino-cli
+        uses: arduino/setup-arduino-cli@v1
+
+      - name: Download board support artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: esp32-board-support
+          path: /home/runner/.arduino15/packages/esp32
+
       - name: Compile and Export Binaries for ${{ matrix.board.name }}
         run: |
           arduino-cli compile \
@@ -39,15 +60,21 @@ jobs:
             --export-binaries \
             firmware/happy-plant/happy-plant.ino
 
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.board.name }}-firmware
+          path: webapp/public/binaries/${{ matrix.board.name }}
+
   commit-and-push:
     runs-on: ubuntu-latest
     needs: [build]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download all firmware artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: webapp/public/binaries
 
@@ -63,7 +90,7 @@ jobs:
           git add webapp/public/binaries/*
           # Check if there are changes to commit
           if ! git diff --staged --quiet; then
-            git commit -m "Automated ESP firmware build for happy-plant"
+            git commit -m "Automated ESP32 & ESP32-S3 firmware build for happy-plant"
             git push
           else
             echo "No changes to commit."
