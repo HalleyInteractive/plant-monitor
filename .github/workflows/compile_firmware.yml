@@ -39,12 +39,6 @@ jobs:
             --export-binaries \
             firmware/happy-plant/happy-plant.ino
 
-      - name: Upload firmware artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ matrix.board.name }}-firmware
-          path: webapp/public/binaries/${{ matrix.board.name }}
-
   commit-and-push:
     runs-on: ubuntu-latest
     needs: [build]
@@ -69,7 +63,7 @@ jobs:
           git add webapp/public/binaries/*
           # Check if there are changes to commit
           if ! git diff --staged --quiet; then
-            git commit -m "Automated ESP32 & ESP32-S3 firmware build for happy-plant"
+            git commit -m "Automated ESP firmware build for happy-plant"
             git push
           else
             echo "No changes to commit."

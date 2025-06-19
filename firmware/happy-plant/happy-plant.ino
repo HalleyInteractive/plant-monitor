@@ -338,7 +338,6 @@ void executeCommand(String cmdStr, String payload)
     }
     sendResponse("OK", cmdStr, historyPayload);
   }
-  // --- Error: Unknown Command ---
   else
   {
     sendResponse("ERROR", cmdStr, "Unknown command");
