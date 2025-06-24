@@ -468,7 +468,7 @@ void executeCommand(String cmdStr, String payload)
   {
     payload.toCharArray(plantName, sizeof(plantName));
     preferences.putString("plantName", plantName);
-    sendResponse("OK", cmdStr, "Plant name set to " + payload);
+    sendResponse("OK", cmdStr, payload);
   }
   // --- Sensor Commands ---
   else
