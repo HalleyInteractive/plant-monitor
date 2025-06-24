@@ -1,3 +1,78 @@
 <div class="container">
+  <mat-card class="full-width-card">
+    <mat-card-header>
+      <mat-card-title>Plant Configuration</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <mat-list>
+        <mat-list-item>
+          <span matListItemTitle>Plant Name</span>
+          <span matListItemLine>{{ espService.plantName() || 'N/A' }}</span>
+        </mat-list-item>
+        <mat-divider></mat-divider>
+        <mat-list-item>
+          <span matListItemTitle>Version</span>
+          <span matListItemLine>{{ espService.version() || 'N/A' }}</span>
+        </mat-list-item>
+        <mat-divider></mat-divider>
+        <mat-list-item>
+          <span matListItemTitle>Pin Configuration</span>
+          <span matListItemLine>
+            Water Pin: {{ espService.pinWater() || 'N/A' }} | Light Pin: {{ espService.pinLight() || 'N/A' }}
+          </span>
+        </mat-list-item>
+      </mat-list>
+    </mat-card-content>
+  </mat-card>
+
+  <div class="chart-row">
+    <mat-card class="chart-card">
+      <mat-card-header>
+        <mat-card-title>Current Water Value</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="chart-container">
+          <canvas baseChart
+                  [data]="waterChartData()"
+                  [options]="doughnutChartOptions"
+                  [type]="'doughnut'">
+          </canvas>
+          <div class="chart-center-text">{{ espService.currentWaterValue() }}%</div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="chart-card">
+      <mat-card-header>
+        <mat-card-title>Current Light Value</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="chart-container">
+          <canvas baseChart
+                  [data]="lightChartData()"
+                  [options]="doughnutChartOptions"
+                  [type]="'doughnut'">
+          </canvas>
+          <div class="chart-center-text">{{ espService.currentLightValue() }}%</div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <mat-card class="full-width-card">
+    <mat-card-header>
+      <mat-card-title>Water and Light History</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="line-chart-container">
+        <canvas baseChart
+                [data]="lineChartData()"
+                [options]="lineChartOptions"
+                [type]="'line'">
+        </canvas>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
   <app-logs></app-logs>
 </div>

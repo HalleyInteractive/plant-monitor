@@ -1,0 +1,48 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+.full-width-card {
+  width: 100%;
+}
+
+.chart-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.chart-card {
+  flex: 1 1 calc(50% - 8px);
+  min-width: 300px;
+}
+
+.chart-container {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  margin: auto;
+}
+
+.chart-center-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.line-chart-container {
+  height: 400px;
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .chart-card {
+    flex-basis: 100%;
+  }
+}

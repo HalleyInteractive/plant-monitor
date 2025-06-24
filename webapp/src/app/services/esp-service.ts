@@ -77,8 +77,6 @@ export class EspService {
     await this.sendCommand(Plant.PlantCommand.GET_PLANT_NAME);
     await this.sendCommand(Plant.PlantCommand.GET_PIN_LIGHT);
     await this.sendCommand(Plant.PlantCommand.GET_PIN_WATER);
-    await this.sendCommand(Plant.PlantCommand.GET_CURRENT_VALUE_LIGHT);
-    await this.sendCommand(Plant.PlantCommand.GET_CURRENT_VALUE_WATER);
     await this.sendCommand(Plant.PlantCommand.GET_HISTORY_LIGHT);
     await this.sendCommand(Plant.PlantCommand.GET_HISTORY_WATER);
   }
@@ -86,10 +84,6 @@ export class EspService {
   public setPlantName(name: string) {
     if (!name) return;
     this.sendCommand(Plant.PlantCommand.SET_PLANT_NAME, name);
-  }
-
-  public readSensors() {
-    this.sendCommand(Plant.PlantCommand.READ_SENSORS);
   }
 
   public getPinLight = () => this.sendCommand(Plant.PlantCommand.GET_PIN_LIGHT);
@@ -217,8 +211,5 @@ export class EspService {
       }
       return newLogs;
     });
-    // Consider removing or making this log conditional for less console noise.
-    // For example, only log if a specific debug flag is true.
-    // console.log('RAW SERIAL LOG UPDATED:', this.serialLog());
   }
 }

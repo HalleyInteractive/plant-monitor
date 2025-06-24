@@ -27,8 +27,6 @@
   </div>
 
   <div class="section" *ngIf="espService.connected()">
-    <h3>Sensors</h3>
-    <button mat-raised-button (click)="espService.readSensors()">Read Sensors (Update History on Device)</button>
 
     <h4>Light Sensor</h4>
     <p>Pin: {{ espService.pinLight() ?? 'N/A' }}</p>
