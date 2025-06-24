@@ -31,9 +31,11 @@ export class EspService {
   readonly pinLight = signal<string | null>(null);
   readonly currentLightValue = signal<number | null>(null);
   readonly lightHistory = signal<number[]>([]);
+  readonly lightRange = signal<[number, number] | null>(null);
   readonly pinWater = signal<string | null>(null);
   readonly currentWaterValue = signal<number | null>(null);
   readonly waterHistory = signal<number[]>([]);
+  readonly waterRange = signal<[number, number] | null>(null);
 
   constructor() {
     Esp.onFlashProgress(this.controller, (progress, partition) => {
@@ -65,9 +67,11 @@ export class EspService {
     this.pinLight.set(null);
     this.currentLightValue.set(null);
     this.lightHistory.set([]);
+    this.lightRange.set(null);
     this.pinWater.set(null);
     this.currentWaterValue.set(null);
     this.waterHistory.set([]);
+    this.waterRange.set(null);
     this.parsedResponsesLog.set([]);
   }
 
@@ -79,6 +83,8 @@ export class EspService {
     await this.sendCommand(Plant.PlantCommand.GET_PIN_WATER);
     await this.sendCommand(Plant.PlantCommand.GET_HISTORY_LIGHT);
     await this.sendCommand(Plant.PlantCommand.GET_HISTORY_WATER);
+    await this.sendCommand(Plant.PlantCommand.GET_RANGE_LIGHT);
+    await this.sendCommand(Plant.PlantCommand.GET_RANGE_WATER);
   }
 
   public setPlantName(name: string) {
@@ -90,11 +96,15 @@ export class EspService {
   public setPinLight = (pin: string) => this.sendCommand(Plant.PlantCommand.SET_PIN_LIGHT, pin);
   public getCurrentValueLight = () => this.sendCommand(Plant.PlantCommand.GET_CURRENT_VALUE_LIGHT);
   public getHistoryLight = () => this.sendCommand(Plant.PlantCommand.GET_HISTORY_LIGHT);
+  public getRangeLight = () => this.sendCommand(Plant.PlantCommand.GET_RANGE_LIGHT);
+  public setRangeLight = (min: string, max: string) => this.sendCommand(Plant.PlantCommand.SET_RANGE_LIGHT, `${min},${max}`);
 
   public getPinWater = () => this.sendCommand(Plant.PlantCommand.GET_PIN_WATER);
   public setPinWater = (pin: string) => this.sendCommand(Plant.PlantCommand.SET_PIN_WATER, pin);
   public getCurrentValueWater = () => this.sendCommand(Plant.PlantCommand.GET_CURRENT_VALUE_WATER);
   public getHistoryWater = () => this.sendCommand(Plant.PlantCommand.GET_HISTORY_WATER);
+  public getRangeWater = () => this.sendCommand(Plant.PlantCommand.GET_RANGE_WATER);
+  public setRangeWater = (min: string, max: string) => this.sendCommand(Plant.PlantCommand.SET_RANGE_WATER, `${min},${max}`);
 
 
   public async flashFirmware() {
@@ -175,6 +185,11 @@ export class EspService {
         case Plant.PlantCommand.GET_HISTORY_LIGHT:
           this.lightHistory.set(Plant.parseNumericPayload(response.payload));
           break;
+        case Plant.PlantCommand.GET_RANGE_LIGHT:
+        case Plant.PlantCommand.SET_RANGE_LIGHT:
+          { const [min, max] = Plant.parseNumericPayload(response.payload);
+            this.lightRange.set([min, max]);
+            break; }
         case Plant.PlantCommand.GET_PIN_WATER:
         case Plant.PlantCommand.SET_PIN_WATER:
           this.pinWater.set(response.payload);
@@ -189,6 +204,11 @@ export class EspService {
         case Plant.PlantCommand.GET_HISTORY_WATER:
           this.waterHistory.set(Plant.parseNumericPayload(response.payload));
           break;
+        case Plant.PlantCommand.GET_RANGE_WATER:
+        case Plant.PlantCommand.SET_RANGE_WATER:
+            { const [min, max] = Plant.parseNumericPayload(response.payload);
+            this.waterRange.set([min, max]);
+            break; }
       }
     } else {
       console.error(`Device Error (Command: ${response.command}): ${response.payload}`);

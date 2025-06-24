@@ -44,6 +44,19 @@
     <button mat-button (click)="espService.getCurrentValueLight()">Get Current Light Value</button>
     <p>History: {{ espService.lightHistory().join(', ') }}</p>
     <button mat-button (click)="espService.getHistoryLight()">Get Light History</button>
+    <p>Range: {{ espService.lightRange()?.join(', ') ?? 'N/A' }}</p>
+    <div>
+      <mat-form-field appearance="outline" class="input-field">
+        <mat-label>Set Light Range Min</mat-label>
+        <input matInput type="text" #lightRangeMin />
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="input-field">
+        <mat-label>Set Light Range Max</mat-label>
+        <input matInput type="text" #lightRangeMax />
+      </mat-form-field>
+      <button mat-button (click)="espService.setRangeLight(lightRangeMin.value, lightRangeMax.value)">Set Light Range</button>
+      <button mat-button (click)="espService.getRangeLight()">Get Light Range</button>
+    </div>
 
     <h4>Water Sensor</h4>
     <p>Pin: {{ espService.pinWater() ?? 'N/A' }}</p>
@@ -61,6 +74,19 @@
     <button mat-button (click)="espService.getCurrentValueWater()">Get Current Water Value</button>
     <p>History: {{ espService.waterHistory().join(', ') }}</p>
     <button mat-button (click)="espService.getHistoryWater()">Get Water History</button>
+    <p>Range: {{ espService.waterRange()?.join(', ') ?? 'N/A' }}</p>
+    <div>
+        <mat-form-field appearance="outline" class="input-field">
+            <mat-label>Set Water Range Min</mat-label>
+            <input matInput type="text" #waterRangeMin />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="input-field">
+            <mat-label>Set Water Range Max</mat-label>
+            <input matInput type="text" #waterRangeMax />
+        </mat-form-field>
+        <button mat-button (click)="espService.setRangeWater(waterRangeMin.value, waterRangeMax.value)">Set Water Range</button>
+        <button mat-button (click)="espService.getRangeWater()">Get Water Range</button>
+    </div>
   </div>
 
 </div>

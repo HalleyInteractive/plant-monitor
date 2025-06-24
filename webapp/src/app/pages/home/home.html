@@ -21,6 +21,13 @@
             Water Pin: {{ espService.pinWater() || 'N/A' }} | Light Pin: {{ espService.pinLight() || 'N/A' }}
           </span>
         </mat-list-item>
+        <mat-divider></mat-divider>
+        <mat-list-item>
+          <span matListItemTitle>Sensor Ranges</span>
+          <span matListItemLine>
+            Water Range: {{ espService.waterRange()?.join(' - ') || 'N/A' }} | Light Range: {{ espService.lightRange()?.join(' - ') || 'N/A' }}
+          </span>
+        </mat-list-item>
       </mat-list>
     </mat-card-content>
   </mat-card>
