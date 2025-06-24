@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, OnDestroy, OnInit } from '@angular/core';
 import { EspService } from '../../services/esp-service';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -28,12 +28,33 @@ import { Chart, ChartOptions, ChartData, registerables } from 'chart.js';
   templateUrl: './home.html',
   styleUrl: './home.scss',
 })
-export class Home {
+export class Home implements OnInit, OnDestroy {
   readonly espService = inject(EspService);
-
+  private intervalId = 0;
   constructor() {
     // Register all Chart.js components to enable tree-shaking
     Chart.register(...registerables);
+  }
+
+  ngOnInit() {
+    // Set up periodic updates for water and light values
+    this.intervalId = setInterval(() => {
+      this.getLatestValues();
+    }, 5000); // Update every 5 seconds
+  }
+  ngOnDestroy() {
+    // Clear the interval to prevent memory leaks
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = 0;
+    }
+  }
+
+  private getLatestValues() {
+    console.log('Fetching latest water and light values...');
+    // Fetch the latest values for water and light
+    this.espService.getCurrentValueWater();
+    this.espService.getCurrentValueLight();
   }
 
   // Doughnut Chart Options
