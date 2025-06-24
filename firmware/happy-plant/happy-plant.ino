@@ -1,12 +1,12 @@
 /**
- * Happy Plant - ESP32 Plant Monitoring System (Enhanced v4)
+ * Happy Plant - ESP32 Plant Monitoring System (Enhanced v5)
  *
  * This firmware allows an ESP32 to monitor plant sensors (light, water),
  * store a 30-day history of sensor readings persistently in NVS, and
  * communicate with a web application via the Serial port.
  *
- * This version uses a simplified protocol. The device ID has been removed
- * from responses, and the colon (:) is only used for commands that send a payload.
+ * All sensor values (current and historical) are mapped to a 0-100 scale
+ * based on a customizable input range (default 0-4095).
  *
  * --- AVAILABLE COMMANDS ---
  *
@@ -20,16 +20,20 @@
  * **Light Sensor Commands:**
  * - GET_PIN_LIGHT:          Get the GPIO pin for the light sensor.
  * - SET_PIN_LIGHT:          Set a new GPIO pin for the light sensor. (e.g., "SET_PIN_LIGHT:32")
- * - GET_CURRENT_VALUE_LIGHT:Get a live reading from the light sensor.
- * - GET_HISTORY_LIGHT:      Get the 30-day reading history for the light sensor.
+ * - GET_CURRENT_VALUE_LIGHT:Get a live reading from the light sensor, mapped to 0-100.
+ * - GET_HISTORY_LIGHT:      Get the 30-day reading history for the light sensor (0-100 scale).
+ * - GET_RANGE_LIGHT:        Get the custom mapping range for the light sensor. (Response: "min,max")
+ * - SET_RANGE_LIGHT:        Set the custom mapping range. (e.g., "SET_RANGE_LIGHT:0,4000")
  *
  * **Water Sensor Commands:**
  * - GET_PIN_WATER:          Get the GPIO pin for the water sensor.
  * - SET_PIN_WATER:          Set a new GPIO pin for the water sensor. (e.g., "SET_PIN_WATER:33")
- * - GET_CURRENT_VALUE_WATER:Get a live reading from the water sensor.
- * - GET_HISTORY_WATER:      Get the 30-day reading history for the water sensor.
+ * - GET_CURRENT_VALUE_WATER:Get a live reading from the water sensor, mapped to 0-100.
+ * - GET_HISTORY_WATER:      Get the 30-day reading history for the water sensor (0-100 scale).
+ * - GET_RANGE_WATER:        Get the custom mapping range for the water sensor. (Response: "min,max")
+ * - SET_RANGE_WATER:        Set the custom mapping range. (e.g., "SET_RANGE_WATER:1200,3300")
  *
- * --- Communication Protocol (v6 - Simplified) ---
+ * --- Communication Protocol (v7 - Mapped) ---
  * The device communicates over Serial using a simple text-based protocol.
  *
  * Command Format (from App to ESP32):
@@ -41,20 +45,6 @@
  * - RESPONSE_CODE: "OK" or "ERROR".
  * - ORIGINAL_COMMAND: The command this message is a response to.
  * - PAYLOAD: The data returned by the command.
- *
- * Examples:
- *
- * Command: CONNECT
- * Response: OK:CONNECT:Ready
- *
- * Command: SET_PLANT_NAME:Fiddle Leaf Fig
- * Response: OK:SET_PLANT_NAME:Plant name set to Fiddle Leaf Fig
- *
- * Command: GET_PIN_LIGHT
- * Response: OK:GET_PIN_LIGHT:36
- *
- * Command: SET_PIN_WATER:33
- * Response: OK:SET_PIN_WATER:Pin for water updated to 33
  */
 
 // --- LIBRARIES ---
@@ -62,10 +52,11 @@
 #include <Preferences.h> // For storing settings in Non-Volatile Storage (NVS)
 
 // --- CONSTANTS & DEFINITIONS ---
-#define FIRMWARE_VERSION "1.7.0-simplified"
+#define FIRMWARE_VERSION "1.8.0-mapped-ranges"
 #define MAX_SENSORS 4
 #define HISTORY_DAYS 30
 #define HOURLY_READ_INTERVAL 3600000 // 1 hour in milliseconds
+#define ANALOG_MAX 4095
 
 // NVS Namespace
 Preferences preferences;
@@ -80,8 +71,10 @@ struct Sensor
 {
   char name[16];
   int pin;
-  uint16_t lastValue;
-  uint16_t history[HISTORY_DAYS];
+  uint16_t lastValue;             // Mapped value (0-100)
+  uint16_t history[HISTORY_DAYS]; // Mapped values (0-100)
+  uint16_t range_min;             // Custom min for mapping (raw value)
+  uint16_t range_max;             // Custom max for mapping (raw value)
 };
 
 Sensor sensors[MAX_SENSORS];
@@ -102,6 +95,7 @@ void loadConfiguration();
 void initializeSensorPins();
 void readSensorValues();
 void updateAndStoreHistory();
+uint16_t getMappedValue(int sensorIndex, uint16_t rawValue);
 
 // =================================================================
 // SETUP
@@ -117,7 +111,7 @@ void setup()
 
   Serial.println("Plant Monitor Initialized. Ready for commands.");
 
-  readSensorValues();
+  readSensorValues(); // Perform an initial read to populate lastValue
   lastHourlyUpdate = millis();
 }
 
@@ -152,12 +146,17 @@ void loadConfiguration()
   String storedDeviceName = preferences.getString("deviceName", "Plant Monitor");
   storedDeviceName.toCharArray(deviceName, sizeof(deviceName));
 
-  // --- Sensor Setup ---
+  // --- Light Sensor Setup ---
   strcpy(sensors[LIGHT_SENSOR_INDEX].name, "light");
   sensors[LIGHT_SENSOR_INDEX].pin = preferences.getInt("pin_light", 36);
+  sensors[LIGHT_SENSOR_INDEX].range_min = preferences.getUInt("range_min_l", 0);
+  sensors[LIGHT_SENSOR_INDEX].range_max = preferences.getUInt("range_max_l", ANALOG_MAX);
 
+  // --- Water Sensor Setup ---
   strcpy(sensors[WATER_SENSOR_INDEX].name, "water");
   sensors[WATER_SENSOR_INDEX].pin = preferences.getInt("pin_water", 39);
+  sensors[WATER_SENSOR_INDEX].range_min = preferences.getUInt("range_min_w", 0);
+  sensors[WATER_SENSOR_INDEX].range_max = preferences.getUInt("range_max_w", ANALOG_MAX);
 
   Serial.println("Loading history from NVS...");
   for (int i = 0; i < numSensors; i++)
@@ -181,28 +180,67 @@ void initializeSensorPins()
 // SENSOR READING & HISTORY MANAGEMENT
 // =================================================================
 
+/**
+ * Maps a raw sensor value to a 0-100 scale using the sensor's custom range.
+ * @param sensorIndex The index of the sensor in the global array.
+ * @param rawValue The raw analog reading (0-4095).
+ * @return The mapped value, constrained between 0 and 100.
+ */
+uint16_t getMappedValue(int sensorIndex, uint16_t rawValue)
+{
+  if (sensorIndex < 0 || sensorIndex >= numSensors)
+  {
+    return 0; // Should not happen
+  }
+
+  uint16_t min_range = sensors[sensorIndex].range_min;
+  uint16_t max_range = sensors[sensorIndex].range_max;
+
+  // If min and max are the same, prevent division by zero.
+  // This creates a simple binary threshold.
+  if (min_range >= max_range)
+  {
+    return (rawValue <= min_range) ? 0 : 100;
+  }
+
+  long mapped = map(rawValue, min_range, max_range, 0, 100);
+  return constrain(mapped, 0, 100);
+}
+
+/**
+ * Reads the raw value from each sensor and stores the MAPPED (0-100) value
+ * in the 'lastValue' field for that sensor.
+ */
 void readSensorValues()
 {
-  Serial.println("Reading current sensor values...");
+  Serial.println("Reading and mapping sensor values...");
   for (int i = 0; i < numSensors; i++)
   {
-    sensors[i].lastValue = analogRead(sensors[i].pin);
+    uint16_t rawValue = analogRead(sensors[i].pin);
+    sensors[i].lastValue = getMappedValue(i, rawValue);
   }
 }
 
+/**
+ * Reads the latest sensor values, shifts the history, adds the new mapped
+ * value to history, and persists the history to NVS.
+ */
 void updateAndStoreHistory()
 {
   Serial.println("Updating history and storing to NVS...");
-  readSensorValues();
+  readSensorValues(); // This gets the mapped values into lastValue
 
   for (int i = 0; i < numSensors; i++)
   {
+    // Shift history array to make space for the new reading
     for (int j = HISTORY_DAYS - 1; j > 0; j--)
     {
       sensors[i].history[j] = sensors[i].history[j - 1];
     }
+    // Add the new mapped value to the start of the history
     sensors[i].history[0] = sensors[i].lastValue;
 
+    // Save the updated history buffer to NVS
     char historyKey[24];
     sprintf(historyKey, "hist_%s", sensors[i].name);
     preferences.putBytes(historyKey, sensors[i].history, sizeof(sensors[i].history));
@@ -225,13 +263,11 @@ void handleSerialCommand(String commandString)
 
   if (firstColon != -1)
   {
-    // Command has a payload
     cmdStr = commandString.substring(0, firstColon);
     payload = commandString.substring(firstColon + 1);
   }
   else
   {
-    // Command does not have a payload
     cmdStr = commandString;
     payload = "";
   }
@@ -288,8 +324,10 @@ void executeCommand(String cmdStr, String payload)
   }
   else if (cmdStr == "GET_CURRENT_VALUE_LIGHT")
   {
-    sensors[LIGHT_SENSOR_INDEX].lastValue = analogRead(sensors[LIGHT_SENSOR_INDEX].pin);
-    sendResponse("OK", cmdStr, String(sensors[LIGHT_SENSOR_INDEX].lastValue));
+    uint16_t rawValue = analogRead(sensors[LIGHT_SENSOR_INDEX].pin);
+    uint16_t mappedValue = getMappedValue(LIGHT_SENSOR_INDEX, rawValue);
+    sensors[LIGHT_SENSOR_INDEX].lastValue = mappedValue;
+    sendResponse("OK", cmdStr, String(mappedValue));
   }
   else if (cmdStr == "GET_HISTORY_LIGHT")
   {
@@ -301,6 +339,39 @@ void executeCommand(String cmdStr, String payload)
         historyPayload += ",";
     }
     sendResponse("OK", cmdStr, historyPayload);
+  }
+  else if (cmdStr == "GET_RANGE_LIGHT")
+  {
+    String range = String(sensors[LIGHT_SENSOR_INDEX].range_min) + "," + String(sensors[LIGHT_SENSOR_INDEX].range_max);
+    sendResponse("OK", cmdStr, range);
+  }
+  else if (cmdStr == "SET_RANGE_LIGHT")
+  {
+    int commaIndex = payload.indexOf(',');
+    if (commaIndex != -1)
+    {
+      String minStr = payload.substring(0, commaIndex);
+      String maxStr = payload.substring(commaIndex + 1);
+      int minVal = minStr.toInt();
+      int maxVal = maxStr.toInt();
+
+      if (minVal >= 0 && maxVal <= ANALOG_MAX && minVal < maxVal)
+      {
+        sensors[LIGHT_SENSOR_INDEX].range_min = minVal;
+        sensors[LIGHT_SENSOR_INDEX].range_max = maxVal;
+        preferences.putUInt("range_min_l", minVal);
+        preferences.putUInt("range_max_l", maxVal);
+        sendResponse("OK", cmdStr, "Light sensor range set to " + payload);
+      }
+      else
+      {
+        sendResponse("ERROR", cmdStr, "Invalid range. Use format min,max where 0 <= min < max <= 4095.");
+      }
+    }
+    else
+    {
+      sendResponse("ERROR", cmdStr, "Invalid payload format. Use: min,max");
+    }
   }
   // --- Water Sensor Commands ---
   else if (cmdStr == "GET_PIN_WATER")
@@ -324,8 +395,10 @@ void executeCommand(String cmdStr, String payload)
   }
   else if (cmdStr == "GET_CURRENT_VALUE_WATER")
   {
-    sensors[WATER_SENSOR_INDEX].lastValue = analogRead(sensors[WATER_SENSOR_INDEX].pin);
-    sendResponse("OK", cmdStr, String(sensors[WATER_SENSOR_INDEX].lastValue));
+    uint16_t rawValue = analogRead(sensors[WATER_SENSOR_INDEX].pin);
+    uint16_t mappedValue = getMappedValue(WATER_SENSOR_INDEX, rawValue);
+    sensors[WATER_SENSOR_INDEX].lastValue = mappedValue;
+    sendResponse("OK", cmdStr, String(mappedValue));
   }
   else if (cmdStr == "GET_HISTORY_WATER")
   {
@@ -337,6 +410,39 @@ void executeCommand(String cmdStr, String payload)
         historyPayload += ",";
     }
     sendResponse("OK", cmdStr, historyPayload);
+  }
+  else if (cmdStr == "GET_RANGE_WATER")
+  {
+    String range = String(sensors[WATER_SENSOR_INDEX].range_min) + "," + String(sensors[WATER_SENSOR_INDEX].range_max);
+    sendResponse("OK", cmdStr, range);
+  }
+  else if (cmdStr == "SET_RANGE_WATER")
+  {
+    int commaIndex = payload.indexOf(',');
+    if (commaIndex != -1)
+    {
+      String minStr = payload.substring(0, commaIndex);
+      String maxStr = payload.substring(commaIndex + 1);
+      int minVal = minStr.toInt();
+      int maxVal = maxStr.toInt();
+
+      if (minVal >= 0 && maxVal <= ANALOG_MAX && minVal < maxVal)
+      {
+        sensors[WATER_SENSOR_INDEX].range_min = minVal;
+        sensors[WATER_SENSOR_INDEX].range_max = maxVal;
+        preferences.putUInt("range_min_w", minVal);
+        preferences.putUInt("range_max_w", maxVal);
+        sendResponse("OK", cmdStr, "Water sensor range set to " + payload);
+      }
+      else
+      {
+        sendResponse("ERROR", cmdStr, "Invalid range. Use format min,max where 0 <= min < max <= 4095.");
+      }
+    }
+    else
+    {
+      sendResponse("ERROR", cmdStr, "Invalid payload format. Use: min,max");
+    }
   }
   else
   {
