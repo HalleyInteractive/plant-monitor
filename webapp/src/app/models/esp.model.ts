@@ -94,8 +94,8 @@ export function onFlashProgress(
 function createImage(): ESPImage {
   const image = new ESPImage();
 
-  const bootloader = new BinFilePartition(0x1000, "binaries/happy-plant.ino.bootloader.bin");
-  const app = new BinFilePartition(0x10000, "binaries/happy-plant.ino.bin");
+  const bootloader = new BinFilePartition(0x1000, "binaries/esp32-firmware/happy-plant.ino.bootloader.bin");
+  const app = new BinFilePartition(0x10000, "binaries/esp32-firmware/happy-plant.ino.bin");
   const partitionTable = new PartitionTable([
     {
       name: "nvs",
