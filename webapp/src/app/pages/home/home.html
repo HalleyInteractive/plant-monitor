@@ -1,6 +1,23 @@
 <div class="container">
   <mat-card class="full-width-card">
     <mat-card-header>
+      <mat-card-title>Gemini Suggestions</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      @if (geminiService.getApiKey()) {
+        <p>{{ geminiService.geminiResponse() }}</p>
+      } @else {
+        <mat-form-field class="full-width-card">
+          <mat-label>Enter Gemini API Key</mat-label>
+          <input matInput #apiKey>
+        </mat-form-field>
+        <button mat-raised-button color="primary" (click)="geminiService.setApiKey(apiKey.value)">Save Key</button>
+      }
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="full-width-card">
+    <mat-card-header>
       <mat-card-title>Plant Configuration</mat-card-title>
     </mat-card-header>
     <mat-card-content>

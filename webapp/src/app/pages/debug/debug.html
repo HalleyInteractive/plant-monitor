@@ -9,6 +9,18 @@
     <p *ngIf="espService.flashing()">FLASHING FIRMWARE...</p>
   </div>
 
+  <div class="section">
+    <h3>Gemini</h3>
+    <p>API Key: {{ geminiService.getApiKey() ?? 'N/A' }}</p>
+    <mat-form-field appearance="outline" class="input-field">
+      <mat-label>Set API Key</mat-label>
+      <input matInput type="text" #apiKey />
+      <button mat-icon-button matSuffix (click)="geminiService.setApiKey(apiKey.value)" matTooltip="Set API Key">
+        <mat-icon>send</mat-icon>
+      </button>
+    </mat-form-field>
+  </div>
+
   <div class="section" *ngIf="espService.connected()">
     <h3>Device Info</h3>
     <button mat-button (click)="espService.getDeviceInfo()">Refresh Device Info</button>

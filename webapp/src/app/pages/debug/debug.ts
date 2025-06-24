@@ -7,6 +7,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { GeminiService } from '../../services/gemini-service';
 
 
 @Component({
@@ -27,4 +28,5 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 export class Debug {
   // Inject EspService and make it public to use in the template
   public espService = inject(EspService);
+  public geminiService = inject(GeminiService);
 }

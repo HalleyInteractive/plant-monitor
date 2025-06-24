@@ -10,10 +10,14 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { Logs } from '../../components/logs/logs';
 import { BaseChartDirective } from 'ng2-charts';
 import { Chart, ChartOptions, ChartData, registerables } from 'chart.js';
+import { GeminiService } from '../../services/gemini-service';
+import { CommonModule } from '@angular/common';
+import { MatInputModule } from '@angular/material/input';
 
 @Component({
   selector: 'app-home',
   imports: [
+    CommonModule,
     MatButtonModule,
     MatCardModule,
     MatFormFieldModule,
@@ -23,6 +27,7 @@ import { Chart, ChartOptions, ChartData, registerables } from 'chart.js';
     MatListModule,
     Logs,
     BaseChartDirective,
+    MatInputModule,
   ],
   standalone: true,
   templateUrl: './home.html',
@@ -30,6 +35,7 @@ import { Chart, ChartOptions, ChartData, registerables } from 'chart.js';
 })
 export class Home implements OnInit, OnDestroy {
   readonly espService = inject(EspService);
+  readonly geminiService = inject(GeminiService);
   private intervalId = 0;
   constructor() {
     // Register all Chart.js components to enable tree-shaking
@@ -40,7 +46,11 @@ export class Home implements OnInit, OnDestroy {
     // Set up periodic updates for water and light values
     this.intervalId = setInterval(() => {
       this.getLatestValues();
-    }, 5000); // Update every 5 seconds
+    }, 60000); // Update every 1 minute
+
+    if(this.espService.connected()) {
+      this.getLatestValues();
+    }
   }
   ngOnDestroy() {
     // Clear the interval to prevent memory leaks
@@ -55,6 +65,13 @@ export class Home implements OnInit, OnDestroy {
     // Fetch the latest values for water and light
     await this.espService.getCurrentValueWater();
     await this.espService.getCurrentValueLight();
+
+    const water = this.espService.currentWaterValue();
+    const light = this.espService.currentLightValue();
+
+    if (this.geminiService.getApiKey() && water && light) {
+      await this.geminiService.getNewResponse(water, light);
+    }
   }
 
   // Doughnut Chart Options
@@ -130,7 +147,6 @@ export class Home implements OnInit, OnDestroy {
     const waterHistory = this.espService.waterHistory();
     const lightHistory = this.espService.lightHistory();
     const labelCount = Math.max(waterHistory.length, lightHistory.length);
-
     return {
       labels: Array.from({ length: labelCount }, (_, i) => `Reading ${i + 1}`),
       datasets: [
