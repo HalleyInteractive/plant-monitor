@@ -5,9 +5,6 @@
     </mat-card-header>
     <mat-card-content>
       @if (geminiService.getApiKey()) {
-        @if(geminiService.geminiResponse(); as latestResponse) {
-          <p><strong>Latest:</strong> {{ latestResponse }}</p>
-        }
         @for (response of geminiService.geminiResponseHistory(); track response) {
           <p>{{ response }}</p>
         }

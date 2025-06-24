@@ -46,7 +46,7 @@ export class Home implements OnInit, OnDestroy {
     // Set up periodic updates for water and light values
     this.intervalId = setInterval(() => {
       this.getLatestValues();
-    }, 10000); // Update every 10 seconds
+    }, 30000); // Update every 30 seconds
 
     if(this.espService.connected()) {
       this.getLatestValues();
