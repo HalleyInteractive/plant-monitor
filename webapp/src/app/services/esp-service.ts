@@ -88,6 +88,7 @@ export class EspService {
   }
 
   public setPlantName(name: string) {
+    console.log('Setting plant name:', name);
     if (!name) return;
     this.sendCommand(Plant.PlantCommand.SET_PLANT_NAME, name);
   }
@@ -105,6 +106,10 @@ export class EspService {
   public getHistoryWater = () => this.sendCommand(Plant.PlantCommand.GET_HISTORY_WATER);
   public getRangeWater = () => this.sendCommand(Plant.PlantCommand.GET_RANGE_WATER);
   public setRangeWater = (min: string, max: string) => this.sendCommand(Plant.PlantCommand.SET_RANGE_WATER, `${min},${max}`);
+  public setMinMapLight = () => this.sendCommand(Plant.PlantCommand.SET_MIN_MAP_LIGHT);
+  public setMaxMapLight = () => this.sendCommand(Plant.PlantCommand.SET_MAX_MAP_LIGHT);
+  public setMinMapWater = () => this.sendCommand(Plant.PlantCommand.SET_MIN_MAP_WATER);
+  public setMaxMapWater = () => this.sendCommand(Plant.PlantCommand.SET_MAX_MAP_WATER);
 
 
   public async flashFirmware() {

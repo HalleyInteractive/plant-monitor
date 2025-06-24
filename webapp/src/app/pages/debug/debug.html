@@ -56,6 +56,8 @@
       </mat-form-field>
       <button mat-button (click)="espService.setRangeLight(lightRangeMin.value, lightRangeMax.value)">Set Light Range</button>
       <button mat-button (click)="espService.getRangeLight()">Get Light Range</button>
+      <button mat-button (click)="espService.setMinMapLight()">Set current as MIN</button>
+      <button mat-button (click)="espService.setMaxMapLight()">Set current as MAX</button>
     </div>
 
     <h4>Water Sensor</h4>
@@ -86,7 +88,10 @@
         </mat-form-field>
         <button mat-button (click)="espService.setRangeWater(waterRangeMin.value, waterRangeMax.value)">Set Water Range</button>
         <button mat-button (click)="espService.getRangeWater()">Get Water Range</button>
+        <button mat-button (click)="espService.setMinMapWater()">Set current as MIN</button>
+        <button mat-button (click)="espService.setMaxMapWater()">Set current as MAX</button>
     </div>
   </div>
+
 
 </div>
