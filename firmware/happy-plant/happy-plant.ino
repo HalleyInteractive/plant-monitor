@@ -1,5 +1,5 @@
 /**
- * Happy Plant - ESP32 Plant Monitoring System (Enhanced v5)
+ * Happy Plant - ESP32 Plant Monitoring System (Enhanced v6)
  *
  * This firmware allows an ESP32 to monitor plant sensors (light, water),
  * store a 30-day history of sensor readings persistently in NVS, and
@@ -7,6 +7,9 @@
  *
  * All sensor values (current and historical) are mapped to a 0-100 scale
  * based on a customizable input range (default 0-4095).
+ *
+ * The water sensor readings are INVERTED. A low raw value (wet) maps to 100,
+ * and a high raw value (dry) maps to 0.
  *
  * --- AVAILABLE COMMANDS ---
  *
@@ -24,14 +27,18 @@
  * - GET_HISTORY_LIGHT:      Get the 30-day reading history for the light sensor (0-100 scale).
  * - GET_RANGE_LIGHT:        Get the custom mapping range for the light sensor. (Response: "min,max")
  * - SET_RANGE_LIGHT:        Set the custom mapping range. (e.g., "SET_RANGE_LIGHT:0,4000")
+ * - SET_MIN_MAP_LIGHT:      Set the current light sensor reading as the minimum for mapping.
+ * - SET_MAX_MAP_LIGHT:      Set the current light sensor reading as the maximum for mapping.
  *
  * **Water Sensor Commands:**
  * - GET_PIN_WATER:          Get the GPIO pin for the water sensor.
  * - SET_PIN_WATER:          Set a new GPIO pin for the water sensor. (e.g., "SET_PIN_WATER:33")
- * - GET_CURRENT_VALUE_WATER:Get a live reading from the water sensor, mapped to 0-100.
- * - GET_HISTORY_WATER:      Get the 30-day reading history for the water sensor (0-100 scale).
+ * - GET_CURRENT_VALUE_WATER:Get a live reading from the water sensor, mapped to 0-100 (inverted).
+ * - GET_HISTORY_WATER:      Get the 30-day reading history for the water sensor (0-100 scale, inverted).
  * - GET_RANGE_WATER:        Get the custom mapping range for the water sensor. (Response: "min,max")
  * - SET_RANGE_WATER:        Set the custom mapping range. (e.g., "SET_RANGE_WATER:1200,3300")
+ * - SET_MIN_MAP_WATER:      Set the current water sensor reading as the minimum for mapping (wet condition).
+ * - SET_MAX_MAP_WATER:      Set the current water sensor reading as the maximum for mapping (dry condition).
  *
  * --- Communication Protocol (v7 - Mapped) ---
  * The device communicates over Serial using a simple text-based protocol.
@@ -52,7 +59,7 @@
 #include <Preferences.h> // For storing settings in Non-Volatile Storage (NVS)
 
 // --- CONSTANTS & DEFINITIONS ---
-#define FIRMWARE_VERSION "1.8.0-mapped-ranges"
+#define FIRMWARE_VERSION "1.9.0-calibration"
 #define MAX_SENSORS 4
 #define HISTORY_DAYS 30
 #define HOURLY_READ_INTERVAL 3600000 // 1 hour in milliseconds
@@ -182,6 +189,7 @@ void initializeSensorPins()
 
 /**
  * Maps a raw sensor value to a 0-100 scale using the sensor's custom range.
+ * For the water sensor, this mapping is INVERTED (low raw value = 100, high raw value = 0).
  * @param sensorIndex The index of the sensor in the global array.
  * @param rawValue The raw analog reading (0-4095).
  * @return The mapped value, constrained between 0 and 100.
@@ -200,10 +208,30 @@ uint16_t getMappedValue(int sensorIndex, uint16_t rawValue)
   // This creates a simple binary threshold.
   if (min_range >= max_range)
   {
-    return (rawValue <= min_range) ? 0 : 100;
+    if (sensorIndex == WATER_SENSOR_INDEX)
+    {
+      // Inverted threshold for water
+      return (rawValue <= min_range) ? 100 : 0;
+    }
+    else
+    {
+      // Normal threshold for light
+      return (rawValue <= min_range) ? 0 : 100;
+    }
   }
 
-  long mapped = map(rawValue, min_range, max_range, 0, 100);
+  long mapped;
+  if (sensorIndex == WATER_SENSOR_INDEX)
+  {
+    // Invert the mapping for water: wet (low raw) is 100, dry (high raw) is 0
+    mapped = map(rawValue, min_range, max_range, 100, 0);
+  }
+  else
+  {
+    // Normal mapping for other sensors (light)
+    mapped = map(rawValue, min_range, max_range, 0, 100);
+  }
+
   return constrain(mapped, 0, 100);
 }
 
@@ -373,6 +401,34 @@ void executeCommand(String cmdStr, String payload)
       sendResponse("ERROR", cmdStr, "Invalid payload format. Use: min,max");
     }
   }
+  else if (cmdStr == "SET_MIN_MAP_LIGHT")
+  {
+    uint16_t rawValue = analogRead(sensors[LIGHT_SENSOR_INDEX].pin);
+    if (rawValue < sensors[LIGHT_SENSOR_INDEX].range_max)
+    {
+      sensors[LIGHT_SENSOR_INDEX].range_min = rawValue;
+      preferences.putUInt("range_min_l", rawValue);
+      sendResponse("OK", cmdStr, "Light sensor min range set to " + String(rawValue));
+    }
+    else
+    {
+      sendResponse("ERROR", cmdStr, "New min (" + String(rawValue) + ") must be less than current max (" + String(sensors[LIGHT_SENSOR_INDEX].range_max) + ").");
+    }
+  }
+  else if (cmdStr == "SET_MAX_MAP_LIGHT")
+  {
+    uint16_t rawValue = analogRead(sensors[LIGHT_SENSOR_INDEX].pin);
+    if (rawValue > sensors[LIGHT_SENSOR_INDEX].range_min)
+    {
+      sensors[LIGHT_SENSOR_INDEX].range_max = rawValue;
+      preferences.putUInt("range_max_l", rawValue);
+      sendResponse("OK", cmdStr, "Light sensor max range set to " + String(rawValue));
+    }
+    else
+    {
+      sendResponse("ERROR", cmdStr, "New max (" + String(rawValue) + ") must be greater than current min (" + String(sensors[LIGHT_SENSOR_INDEX].range_min) + ").");
+    }
+  }
   // --- Water Sensor Commands ---
   else if (cmdStr == "GET_PIN_WATER")
   {
@@ -442,6 +498,34 @@ void executeCommand(String cmdStr, String payload)
     else
     {
       sendResponse("ERROR", cmdStr, "Invalid payload format. Use: min,max");
+    }
+  }
+  else if (cmdStr == "SET_MIN_MAP_WATER")
+  {
+    uint16_t rawValue = analogRead(sensors[WATER_SENSOR_INDEX].pin);
+    if (rawValue < sensors[WATER_SENSOR_INDEX].range_max)
+    {
+      sensors[WATER_SENSOR_INDEX].range_min = rawValue;
+      preferences.putUInt("range_min_w", rawValue);
+      sendResponse("OK", cmdStr, "Water sensor min range set to " + String(rawValue));
+    }
+    else
+    {
+      sendResponse("ERROR", cmdStr, "New min (" + String(rawValue) + ") must be less than current max (" + String(sensors[WATER_SENSOR_INDEX].range_max) + ").");
+    }
+  }
+  else if (cmdStr == "SET_MAX_MAP_WATER")
+  {
+    uint16_t rawValue = analogRead(sensors[WATER_SENSOR_INDEX].pin);
+    if (rawValue > sensors[WATER_SENSOR_INDEX].range_min)
+    {
+      sensors[WATER_SENSOR_INDEX].range_max = rawValue;
+      preferences.putUInt("range_max_w", rawValue);
+      sendResponse("OK", cmdStr, "Water sensor max range set to " + String(rawValue));
+    }
+    else
+    {
+      sendResponse("ERROR", cmdStr, "New max (" + String(rawValue) + ") must be greater than current min (" + String(sensors[WATER_SENSOR_INDEX].range_min) + ").");
     }
   }
   else
