@@ -9,6 +9,7 @@ const API_KEY_STORAGE = 'gemini_api_key';
 export class GeminiService {
 
   public readonly geminiResponse = signal<string | undefined>(undefined);
+  public readonly geminiResponseHistory = signal<string[]>([]);
   private _apiKey = signal<string | null>(this.getApiKey());
 
   public getApiKey(): string | null {
@@ -27,37 +28,15 @@ export class GeminiService {
       return;
     }
 
-    let waterFeeling = '';
-    if (water < 20) {
-      waterFeeling = "parched and desperate for a sip";
-    } else if (water < 50) {
-      waterFeeling = "a bit thirsty, but still holding on";
-    } else if (water > 80) {
-      waterFeeling = "drowning in happiness (or just water), feeling a bit waterlogged";
-    } else {
-      waterFeeling = "perfectly quenched and content";
-    }
-
-    let lightFeeling = '';
-    if (light < 20) {
-      lightFeeling = "longing for a ray of sunshine, quite literally";
-    } else if (light < 50) {
-      lightFeeling = "craving a bit more light, it's a tad dim";
-    } else if (light > 80) {
-      lightFeeling = "soaking up the glorious rays, maybe a tad sunburnt";
-    } else {
-      lightFeeling = "basking in just the right amount of light";
-    }
-
     try {
       const ai = new GoogleGenAI({ apiKey });
       const contents = `Act as a "${plantName}" plant with a sassy, witty, and slightly dramatic personality.
-      Your current water level is ${water} and your current light intensity is ${light}.
+      Your current water level is ${water}% and your current light intensity is ${light}%.
       Your recent water history: [${waterHistory.join(', ')}]
       Your recent light history: [${lightHistory.join(', ')}]
 
-      Based on your current feelings about being ${waterFeeling} and ${lightFeeling},
-      give a short, funny, and witty one-sentence response *as if you are the "${plantName}" plant*.
+      It's not about being at 100% for water and light, but about having good overall numbers.
+      Based on your current conditions, give a short, funny, and witty one-sentence response *as if you are the "${plantName}" plant*.
       Keep it lighthearted and humorous, avoiding overly scientific or serious tones.
       Express your current mood and needs in a comical way.
 
@@ -75,7 +54,14 @@ export class GeminiService {
           // },
         }
       });
-      this.geminiResponse.set(response.text);
+      const timestamp = new Date().toLocaleString();
+      const newResponse = `${timestamp}: ${response.text}`;
+
+      this.geminiResponse.set(newResponse);
+      this.geminiResponseHistory.update(history => {
+        const newHistory = [newResponse, ...history];
+        return newHistory.slice(0, 5);
+      });
     } catch (e: any) {
       this.geminiResponse.set(`Error: ${e.message}`);
     }

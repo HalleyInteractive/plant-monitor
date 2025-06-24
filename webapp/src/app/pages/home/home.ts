@@ -46,7 +46,7 @@ export class Home implements OnInit, OnDestroy {
     // Set up periodic updates for water and light values
     this.intervalId = setInterval(() => {
       this.getLatestValues();
-    }, 10000); // Update every 1 minute
+    }, 10000); // Update every 10 seconds
 
     if(this.espService.connected()) {
       this.getLatestValues();
@@ -68,9 +68,12 @@ export class Home implements OnInit, OnDestroy {
 
     const water = this.espService.currentWaterValue();
     const light = this.espService.currentLightValue();
+    const plantName = this.espService.plantName() ?? undefined;
+    const waterHistory = this.espService.waterHistory();
+    const lightHistory = this.espService.lightHistory();
 
     if (this.geminiService.getApiKey() && water && light) {
-      await this.geminiService.getNewResponse(water, light);
+      await this.geminiService.getNewResponse(water, light, waterHistory, lightHistory, plantName);
     }
   }
 
