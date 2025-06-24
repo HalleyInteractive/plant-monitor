@@ -59,7 +59,7 @@
 #include <Preferences.h> // For storing settings in Non-Volatile Storage (NVS)
 
 // --- CONSTANTS & DEFINITIONS ---
-#define FIRMWARE_VERSION "1.9.0-calibration"
+#define FIRMWARE_VERSION "1.9.1-calibration"
 #define MAX_SENSORS 4
 #define HISTORY_DAYS 30
 #define HOURLY_READ_INTERVAL 3600000 // 1 hour in milliseconds
@@ -77,6 +77,7 @@ const int WATER_SENSOR_INDEX = 1;
 struct Sensor
 {
   char name[16];
+  char key_suffix; // Suffix for NVS keys ('l', 'w')
   int pin;
   uint16_t lastValue;             // Mapped value (0-100)
   uint16_t history[HISTORY_DAYS]; // Mapped values (0-100)
@@ -103,6 +104,16 @@ void initializeSensorPins();
 void readSensorValues();
 void updateAndStoreHistory();
 uint16_t getMappedValue(int sensorIndex, uint16_t rawValue);
+
+// Command Handler Prototypes
+void handleGetPin(int sensorIndex, String cmdStr);
+void handleSetPin(int sensorIndex, String cmdStr, String payload);
+void handleGetCurrentValue(int sensorIndex, String cmdStr);
+void handleGetHistory(int sensorIndex, String cmdStr);
+void handleGetRange(int sensorIndex, String cmdStr);
+void handleSetRange(int sensorIndex, String cmdStr, String payload);
+void handleSetMinMap(int sensorIndex, String cmdStr);
+void handleSetMaxMap(int sensorIndex, String cmdStr);
 
 // =================================================================
 // SETUP
@@ -153,26 +164,36 @@ void loadConfiguration()
   String storedDeviceName = preferences.getString("deviceName", "Plant Monitor");
   storedDeviceName.toCharArray(deviceName, sizeof(deviceName));
 
-  // --- Light Sensor Setup ---
+  // --- Initialize Sensor Config Data ---
   strcpy(sensors[LIGHT_SENSOR_INDEX].name, "light");
-  sensors[LIGHT_SENSOR_INDEX].pin = preferences.getInt("pin_light", 36);
-  sensors[LIGHT_SENSOR_INDEX].range_min = preferences.getUInt("range_min_l", 0);
-  sensors[LIGHT_SENSOR_INDEX].range_max = preferences.getUInt("range_max_l", ANALOG_MAX);
+  sensors[LIGHT_SENSOR_INDEX].key_suffix = 'l';
 
-  // --- Water Sensor Setup ---
   strcpy(sensors[WATER_SENSOR_INDEX].name, "water");
-  sensors[WATER_SENSOR_INDEX].pin = preferences.getInt("pin_water", 39);
-  sensors[WATER_SENSOR_INDEX].range_min = preferences.getUInt("range_min_w", 0);
-  sensors[WATER_SENSOR_INDEX].range_max = preferences.getUInt("range_max_w", ANALOG_MAX);
+  sensors[WATER_SENSOR_INDEX].key_suffix = 'w';
 
-  Serial.println("Loading history from NVS...");
+  // --- Load Config for each sensor ---
   for (int i = 0; i < numSensors; i++)
   {
+    // Load Pin
+    char pinKey[16];
+    sprintf(pinKey, "pin_%s", sensors[i].name);
+    int defaultPin = (i == LIGHT_SENSOR_INDEX) ? 36 : 39;
+    sensors[i].pin = preferences.getInt(pinKey, defaultPin);
+
+    // Load Range
+    char rangeMinKey[20], rangeMaxKey[20];
+    sprintf(rangeMinKey, "range_min_%c", sensors[i].key_suffix);
+    sprintf(rangeMaxKey, "range_max_%c", sensors[i].key_suffix);
+    sensors[i].range_min = preferences.getUInt(rangeMinKey, 0);
+    sensors[i].range_max = preferences.getUInt(rangeMaxKey, ANALOG_MAX);
+
+    // Load History
     char historyKey[24];
     sprintf(historyKey, "hist_%s", sensors[i].name);
     memset(sensors[i].history, 0, sizeof(sensors[i].history));
     preferences.getBytes(historyKey, sensors[i].history, sizeof(sensors[i].history));
   }
+  Serial.println("Sensor configuration and history loaded from NVS.");
 }
 
 void initializeSensorPins()
@@ -303,9 +324,129 @@ void handleSerialCommand(String commandString)
   executeCommand(cmdStr, payload);
 }
 
+// --- Generic Command Handlers for Sensors ---
+
+void handleGetPin(int sensorIndex, String cmdStr)
+{
+  sendResponse("OK", cmdStr, String(sensors[sensorIndex].pin));
+}
+
+void handleSetPin(int sensorIndex, String cmdStr, String payload)
+{
+  int newPin = payload.toInt();
+  if (newPin > 0)
+  {
+    sensors[sensorIndex].pin = newPin;
+    char pinKey[16];
+    sprintf(pinKey, "pin_%s", sensors[sensorIndex].name);
+    preferences.putInt(pinKey, newPin);
+    initializeSensorPins();
+    sendResponse("OK", cmdStr, "Pin for " + String(sensors[sensorIndex].name) + " updated to " + String(newPin));
+  }
+  else
+  {
+    sendResponse("ERROR", cmdStr, "Invalid pin number");
+  }
+}
+
+void handleGetCurrentValue(int sensorIndex, String cmdStr)
+{
+  uint16_t rawValue = analogRead(sensors[sensorIndex].pin);
+  uint16_t mappedValue = getMappedValue(sensorIndex, rawValue);
+  sensors[sensorIndex].lastValue = mappedValue;
+  sendResponse("OK", cmdStr, String(mappedValue));
+}
+
+void handleGetHistory(int sensorIndex, String cmdStr)
+{
+  String historyPayload = "";
+  for (int i = 0; i < HISTORY_DAYS; i++)
+  {
+    historyPayload += String(sensors[sensorIndex].history[i]);
+    if (i < HISTORY_DAYS - 1)
+      historyPayload += ",";
+  }
+  sendResponse("OK", cmdStr, historyPayload);
+}
+
+void handleGetRange(int sensorIndex, String cmdStr)
+{
+  String range = String(sensors[sensorIndex].range_min) + "," + String(sensors[sensorIndex].range_max);
+  sendResponse("OK", cmdStr, range);
+}
+
+void handleSetRange(int sensorIndex, String cmdStr, String payload)
+{
+  int commaIndex = payload.indexOf(',');
+  if (commaIndex != -1)
+  {
+    String minStr = payload.substring(0, commaIndex);
+    String maxStr = payload.substring(commaIndex + 1);
+    int minVal = minStr.toInt();
+    int maxVal = maxStr.toInt();
+
+    if (minVal >= 0 && maxVal <= ANALOG_MAX && minVal < maxVal)
+    {
+      sensors[sensorIndex].range_min = minVal;
+      sensors[sensorIndex].range_max = maxVal;
+      char minKey[20], maxKey[20];
+      sprintf(minKey, "range_min_%c", sensors[sensorIndex].key_suffix);
+      sprintf(maxKey, "range_max_%c", sensors[sensorIndex].key_suffix);
+      preferences.putUInt(minKey, minVal);
+      preferences.putUInt(maxKey, maxVal);
+      sendResponse("OK", cmdStr, String(sensors[sensorIndex].name) + " sensor range set to " + payload);
+    }
+    else
+    {
+      sendResponse("ERROR", cmdStr, "Invalid range. Use format min,max where 0 <= min < max <= 4095.");
+    }
+  }
+  else
+  {
+    sendResponse("ERROR", cmdStr, "Invalid payload format. Use: min,max");
+  }
+}
+
+void handleSetMinMap(int sensorIndex, String cmdStr)
+{
+  uint16_t rawValue = analogRead(sensors[sensorIndex].pin);
+  if (rawValue < sensors[sensorIndex].range_max)
+  {
+    sensors[sensorIndex].range_min = rawValue;
+    char minKey[20];
+    sprintf(minKey, "range_min_%c", sensors[sensorIndex].key_suffix);
+    preferences.putUInt(minKey, rawValue);
+    sendResponse("OK", cmdStr, String(sensors[sensorIndex].name) + " sensor min range set to " + String(rawValue));
+  }
+  else
+  {
+    sendResponse("ERROR", cmdStr, "New min (" + String(rawValue) + ") must be less than current max (" + String(sensors[sensorIndex].range_max) + ").");
+  }
+}
+
+void handleSetMaxMap(int sensorIndex, String cmdStr)
+{
+  uint16_t rawValue = analogRead(sensors[sensorIndex].pin);
+  if (rawValue > sensors[sensorIndex].range_min)
+  {
+    sensors[sensorIndex].range_max = rawValue;
+    char maxKey[20];
+    sprintf(maxKey, "range_max_%c", sensors[sensorIndex].key_suffix);
+    preferences.putUInt(maxKey, rawValue);
+    sendResponse("OK", cmdStr, String(sensors[sensorIndex].name) + " sensor max range set to " + String(rawValue));
+  }
+  else
+  {
+    sendResponse("ERROR", cmdStr, "New max (" + String(rawValue) + ") must be greater than current min (" + String(sensors[sensorIndex].range_min) + ").");
+  }
+}
+
+/**
+ * Parses the command string and calls the appropriate handler.
+ */
 void executeCommand(String cmdStr, String payload)
 {
-  // --- System Commands ---
+  // --- System & Device Commands ---
   if (cmdStr == "CONNECT")
   {
     sendResponse("OK", cmdStr, "Ready");
@@ -319,7 +460,6 @@ void executeCommand(String cmdStr, String payload)
     updateAndStoreHistory();
     sendResponse("OK", cmdStr, "Forced history update complete.");
   }
-  // --- Device Configuration Commands ---
   else if (cmdStr == "GET_PLANT_NAME")
   {
     sendResponse("OK", cmdStr, plantName);
@@ -330,207 +470,48 @@ void executeCommand(String cmdStr, String payload)
     preferences.putString("plantName", plantName);
     sendResponse("OK", cmdStr, "Plant name set to " + payload);
   }
-  // --- Light Sensor Commands ---
-  else if (cmdStr == "GET_PIN_LIGHT")
-  {
-    sendResponse("OK", cmdStr, String(sensors[LIGHT_SENSOR_INDEX].pin));
-  }
-  else if (cmdStr == "SET_PIN_LIGHT")
-  {
-    int newPin = payload.toInt();
-    if (newPin > 0)
-    {
-      sensors[LIGHT_SENSOR_INDEX].pin = newPin;
-      preferences.putInt("pin_light", newPin);
-      initializeSensorPins();
-      sendResponse("OK", cmdStr, "Pin for light updated to " + String(newPin));
-    }
-    else
-    {
-      sendResponse("ERROR", cmdStr, "Invalid pin number");
-    }
-  }
-  else if (cmdStr == "GET_CURRENT_VALUE_LIGHT")
-  {
-    uint16_t rawValue = analogRead(sensors[LIGHT_SENSOR_INDEX].pin);
-    uint16_t mappedValue = getMappedValue(LIGHT_SENSOR_INDEX, rawValue);
-    sensors[LIGHT_SENSOR_INDEX].lastValue = mappedValue;
-    sendResponse("OK", cmdStr, String(mappedValue));
-  }
-  else if (cmdStr == "GET_HISTORY_LIGHT")
-  {
-    String historyPayload = "";
-    for (int i = 0; i < HISTORY_DAYS; i++)
-    {
-      historyPayload += String(sensors[LIGHT_SENSOR_INDEX].history[i]);
-      if (i < HISTORY_DAYS - 1)
-        historyPayload += ",";
-    }
-    sendResponse("OK", cmdStr, historyPayload);
-  }
-  else if (cmdStr == "GET_RANGE_LIGHT")
-  {
-    String range = String(sensors[LIGHT_SENSOR_INDEX].range_min) + "," + String(sensors[LIGHT_SENSOR_INDEX].range_max);
-    sendResponse("OK", cmdStr, range);
-  }
-  else if (cmdStr == "SET_RANGE_LIGHT")
-  {
-    int commaIndex = payload.indexOf(',');
-    if (commaIndex != -1)
-    {
-      String minStr = payload.substring(0, commaIndex);
-      String maxStr = payload.substring(commaIndex + 1);
-      int minVal = minStr.toInt();
-      int maxVal = maxStr.toInt();
-
-      if (minVal >= 0 && maxVal <= ANALOG_MAX && minVal < maxVal)
-      {
-        sensors[LIGHT_SENSOR_INDEX].range_min = minVal;
-        sensors[LIGHT_SENSOR_INDEX].range_max = maxVal;
-        preferences.putUInt("range_min_l", minVal);
-        preferences.putUInt("range_max_l", maxVal);
-        sendResponse("OK", cmdStr, "Light sensor range set to " + payload);
-      }
-      else
-      {
-        sendResponse("ERROR", cmdStr, "Invalid range. Use format min,max where 0 <= min < max <= 4095.");
-      }
-    }
-    else
-    {
-      sendResponse("ERROR", cmdStr, "Invalid payload format. Use: min,max");
-    }
-  }
-  else if (cmdStr == "SET_MIN_MAP_LIGHT")
-  {
-    uint16_t rawValue = analogRead(sensors[LIGHT_SENSOR_INDEX].pin);
-    if (rawValue < sensors[LIGHT_SENSOR_INDEX].range_max)
-    {
-      sensors[LIGHT_SENSOR_INDEX].range_min = rawValue;
-      preferences.putUInt("range_min_l", rawValue);
-      sendResponse("OK", cmdStr, "Light sensor min range set to " + String(rawValue));
-    }
-    else
-    {
-      sendResponse("ERROR", cmdStr, "New min (" + String(rawValue) + ") must be less than current max (" + String(sensors[LIGHT_SENSOR_INDEX].range_max) + ").");
-    }
-  }
-  else if (cmdStr == "SET_MAX_MAP_LIGHT")
-  {
-    uint16_t rawValue = analogRead(sensors[LIGHT_SENSOR_INDEX].pin);
-    if (rawValue > sensors[LIGHT_SENSOR_INDEX].range_min)
-    {
-      sensors[LIGHT_SENSOR_INDEX].range_max = rawValue;
-      preferences.putUInt("range_max_l", rawValue);
-      sendResponse("OK", cmdStr, "Light sensor max range set to " + String(rawValue));
-    }
-    else
-    {
-      sendResponse("ERROR", cmdStr, "New max (" + String(rawValue) + ") must be greater than current min (" + String(sensors[LIGHT_SENSOR_INDEX].range_min) + ").");
-    }
-  }
-  // --- Water Sensor Commands ---
-  else if (cmdStr == "GET_PIN_WATER")
-  {
-    sendResponse("OK", cmdStr, String(sensors[WATER_SENSOR_INDEX].pin));
-  }
-  else if (cmdStr == "SET_PIN_WATER")
-  {
-    int newPin = payload.toInt();
-    if (newPin > 0)
-    {
-      sensors[WATER_SENSOR_INDEX].pin = newPin;
-      preferences.putInt("pin_water", newPin);
-      initializeSensorPins();
-      sendResponse("OK", cmdStr, "Pin for water updated to " + String(newPin));
-    }
-    else
-    {
-      sendResponse("ERROR", cmdStr, "Invalid pin number");
-    }
-  }
-  else if (cmdStr == "GET_CURRENT_VALUE_WATER")
-  {
-    uint16_t rawValue = analogRead(sensors[WATER_SENSOR_INDEX].pin);
-    uint16_t mappedValue = getMappedValue(WATER_SENSOR_INDEX, rawValue);
-    sensors[WATER_SENSOR_INDEX].lastValue = mappedValue;
-    sendResponse("OK", cmdStr, String(mappedValue));
-  }
-  else if (cmdStr == "GET_HISTORY_WATER")
-  {
-    String historyPayload = "";
-    for (int i = 0; i < HISTORY_DAYS; i++)
-    {
-      historyPayload += String(sensors[WATER_SENSOR_INDEX].history[i]);
-      if (i < HISTORY_DAYS - 1)
-        historyPayload += ",";
-    }
-    sendResponse("OK", cmdStr, historyPayload);
-  }
-  else if (cmdStr == "GET_RANGE_WATER")
-  {
-    String range = String(sensors[WATER_SENSOR_INDEX].range_min) + "," + String(sensors[WATER_SENSOR_INDEX].range_max);
-    sendResponse("OK", cmdStr, range);
-  }
-  else if (cmdStr == "SET_RANGE_WATER")
-  {
-    int commaIndex = payload.indexOf(',');
-    if (commaIndex != -1)
-    {
-      String minStr = payload.substring(0, commaIndex);
-      String maxStr = payload.substring(commaIndex + 1);
-      int minVal = minStr.toInt();
-      int maxVal = maxStr.toInt();
-
-      if (minVal >= 0 && maxVal <= ANALOG_MAX && minVal < maxVal)
-      {
-        sensors[WATER_SENSOR_INDEX].range_min = minVal;
-        sensors[WATER_SENSOR_INDEX].range_max = maxVal;
-        preferences.putUInt("range_min_w", minVal);
-        preferences.putUInt("range_max_w", maxVal);
-        sendResponse("OK", cmdStr, "Water sensor range set to " + payload);
-      }
-      else
-      {
-        sendResponse("ERROR", cmdStr, "Invalid range. Use format min,max where 0 <= min < max <= 4095.");
-      }
-    }
-    else
-    {
-      sendResponse("ERROR", cmdStr, "Invalid payload format. Use: min,max");
-    }
-  }
-  else if (cmdStr == "SET_MIN_MAP_WATER")
-  {
-    uint16_t rawValue = analogRead(sensors[WATER_SENSOR_INDEX].pin);
-    if (rawValue < sensors[WATER_SENSOR_INDEX].range_max)
-    {
-      sensors[WATER_SENSOR_INDEX].range_min = rawValue;
-      preferences.putUInt("range_min_w", rawValue);
-      sendResponse("OK", cmdStr, "Water sensor min range set to " + String(rawValue));
-    }
-    else
-    {
-      sendResponse("ERROR", cmdStr, "New min (" + String(rawValue) + ") must be less than current max (" + String(sensors[WATER_SENSOR_INDEX].range_max) + ").");
-    }
-  }
-  else if (cmdStr == "SET_MAX_MAP_WATER")
-  {
-    uint16_t rawValue = analogRead(sensors[WATER_SENSOR_INDEX].pin);
-    if (rawValue > sensors[WATER_SENSOR_INDEX].range_min)
-    {
-      sensors[WATER_SENSOR_INDEX].range_max = rawValue;
-      preferences.putUInt("range_max_w", rawValue);
-      sendResponse("OK", cmdStr, "Water sensor max range set to " + String(rawValue));
-    }
-    else
-    {
-      sendResponse("ERROR", cmdStr, "New max (" + String(rawValue) + ") must be greater than current min (" + String(sensors[WATER_SENSOR_INDEX].range_min) + ").");
-    }
-  }
+  // --- Sensor Commands ---
   else
   {
-    sendResponse("ERROR", cmdStr, "Unknown command");
+    int sensorIndex = -1;
+    String baseCmd = cmdStr;
+
+    if (cmdStr.endsWith("_LIGHT"))
+    {
+      sensorIndex = LIGHT_SENSOR_INDEX;
+      baseCmd = cmdStr.substring(0, cmdStr.lastIndexOf("_LIGHT"));
+    }
+    else if (cmdStr.endsWith("_WATER"))
+    {
+      sensorIndex = WATER_SENSOR_INDEX;
+      baseCmd = cmdStr.substring(0, cmdStr.lastIndexOf("_WATER"));
+    }
+
+    if (sensorIndex != -1)
+    {
+      if (baseCmd == "GET_PIN")
+        handleGetPin(sensorIndex, cmdStr);
+      else if (baseCmd == "SET_PIN")
+        handleSetPin(sensorIndex, cmdStr, payload);
+      else if (baseCmd == "GET_CURRENT_VALUE")
+        handleGetCurrentValue(sensorIndex, cmdStr);
+      else if (baseCmd == "GET_HISTORY")
+        handleGetHistory(sensorIndex, cmdStr);
+      else if (baseCmd == "GET_RANGE")
+        handleGetRange(sensorIndex, cmdStr);
+      else if (baseCmd == "SET_RANGE")
+        handleSetRange(sensorIndex, cmdStr, payload);
+      else if (baseCmd == "SET_MIN_MAP")
+        handleSetMinMap(sensorIndex, cmdStr);
+      else if (baseCmd == "SET_MAX_MAP")
+        handleSetMaxMap(sensorIndex, cmdStr);
+      else
+        sendResponse("ERROR", cmdStr, "Unknown sensor command");
+    }
+    else
+    {
+      sendResponse("ERROR", cmdStr, "Unknown command");
+    }
   }
 }
 
