@@ -50,11 +50,11 @@ export class Home implements OnInit, OnDestroy {
     }
   }
 
-  private getLatestValues() {
+  private async getLatestValues() {
     console.log('Fetching latest water and light values...');
     // Fetch the latest values for water and light
-    this.espService.getCurrentValueWater();
-    this.espService.getCurrentValueLight();
+    await this.espService.getCurrentValueWater();
+    await this.espService.getCurrentValueLight();
   }
 
   // Doughnut Chart Options
