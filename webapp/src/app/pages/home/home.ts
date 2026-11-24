@@ -36,7 +36,7 @@ import { MatInputModule } from '@angular/material/input';
 export class Home implements OnInit, OnDestroy {
   readonly espService = inject(EspService);
   readonly geminiService = inject(GeminiService);
-  private intervalId = 0;
+  private intervalId: ReturnType<typeof setInterval> | null = null;
   constructor() {
     // Register all Chart.js components to enable tree-shaking
     Chart.register(...registerables);
@@ -54,9 +54,9 @@ export class Home implements OnInit, OnDestroy {
   }
   ngOnDestroy() {
     // Clear the interval to prevent memory leaks
-    if (this.intervalId) {
+    if (this.intervalId !== null) {
       clearInterval(this.intervalId);
-      this.intervalId = 0;
+      this.intervalId = null;
     }
   }
 
