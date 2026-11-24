@@ -22,42 +22,42 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Build and deploy job
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: "webapp/package-lock.json"
+
+      - name: Install dependencies
+        working-directory: ./webapp
+        run: npm ci
+
+      - name: Build
+        working-directory: ./webapp
+        run: npm run build
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: "./webapp/dist/happy-plant/browser"
+
   deploy:
+    needs: build
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-          cache-dependency-path: "webapp/package-lock.json"
-
-      - name: Install dependencies
-        # The Angular app is in the 'webapp' directory
-        working-directory: ./webapp
-        run: npm install
-
-      - name: Build
-        # Build the angular app. The output is in dist/happy-plant/browser
-        working-directory: ./webapp
-        run: npm run build
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          # Upload the output of the build process from the correct directory
-          path: "./webapp/dist/happy-plant/browser"
-
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
